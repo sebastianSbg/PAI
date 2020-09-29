@@ -46,9 +46,8 @@ def log_posterior_probs(x):
     # TODO: enter your code here
     log_p_Hi = np.log(PRIOR_PROBS)
     log_p_X_Hi = np.array([np.sum(np.log(HYPOTHESIS_SPACE[0].pdf(x))), np.sum(np.log(HYPOTHESIS_SPACE[1].pdf(x))), np.sum(np.log(HYPOTHESIS_SPACE[2].pdf(x)))])
-    log_p_X_Hi = np.reshape(log_p_X_Hi, (3,))
-    print(log_p_X_Hi,log_p_Hi)
-    Z = np.log(np.sum(np.exp(log_p_Hi+log_p_X_Hi), axis=0))  
+    log_p_X_Hi = np.reshape(log_p_X_Hi, (3,)) 
+    Z = logsumexp(log_p_Hi+log_p_X_Hi)
     log_p = log_p_X_Hi + log_p_Hi - Z
     assert log_p.shape == (3,)
     return log_p
