@@ -44,11 +44,18 @@ def log_posterior_probs(x):
     assert x.ndim == 1
 
     # TODO: enter your code here
+
+    # Map probs into log_space
     log_p_Hi = np.log(PRIOR_PROBS)
     log_p_X_Hi = np.array([np.sum(np.log(HYPOTHESIS_SPACE[0].pdf(x))), np.sum(np.log(HYPOTHESIS_SPACE[1].pdf(x))), np.sum(np.log(HYPOTHESIS_SPACE[2].pdf(x)))])
-    log_p_X_Hi = np.reshape(log_p_X_Hi, (3,)) 
+    log_p_X_Hi = np.reshape(log_p_X_Hi, (3,))
+
+    # Normalization factor 
     Z = logsumexp(log_p_Hi+log_p_X_Hi)
+
+    # Log Bayes rule
     log_p = log_p_X_Hi + log_p_Hi - Z
+
     assert log_p.shape == (3,)
     return log_p
 
