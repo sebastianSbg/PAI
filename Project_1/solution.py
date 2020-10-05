@@ -19,6 +19,10 @@ taskbar. You can just navigate to the folder, right click and copy the directory
 import numpy as np
 from sklearn.linear_model import Ridge
 
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, DotProduct, WhiteKernel
+from sklearn.kernel_approximation import Nystroem
+
 THRESHOLD = 0.5
 W1 = 1
 W2 = 20
@@ -75,7 +79,8 @@ class Model():
             TODO: enter your code here
         """
         self.lamda = 1
-        self.model = None
+        self.kernel = DotProduct() + WhiteKernel()
+        self.model = GaussianProcessRegressor(kernel=self.kernel,random_state=0)
 
     def predict(self, test_x):
         """
@@ -84,7 +89,6 @@ class Model():
         ## dummy code below 
         # y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
         y = self.model.predict(test_x)
-
         return y
 
     def fit_model(self, train_x, train_y):
@@ -92,8 +96,11 @@ class Model():
              TODO: enter your code here
         """
 
-        clf = Ridge(alpha=self.lamda,solver='cholesky')
-        self.model = clf.fit(train_x, train_y)
+        # Nyostream approximation (not implemented yet)
+        feature_map_nystroem = Nystroem(kernel='rbf',gamma=.2,random_state=1,n_components=300)
+        data_transformed = feature_map_nystroem.fit_transform(train_x)
+        
+        self.model.fit(train_x, train_y)
 
         pass
 
@@ -112,6 +119,11 @@ def main():
     # load the test dateset
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
+
+    # Slice data set to run the code
+    n=2000
+    train_x=train_x[0:n, 0:2]
+    train_y=train_y[0:n]
 
     M = Model()
     M.fit_model(train_x, train_y)
