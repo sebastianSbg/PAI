@@ -13,8 +13,8 @@ you will be prompted to allow access to google colab
 now select the file path on the server, the file directory can be found on the left vertical
 taskbar. You can just navigate to the folder, right click and copy the directory of your .csv file"""
 
-from google.colab import drive
-drive.mount('/content/drive')
+# from google.colab import drive
+# drive.mount('/content/drive')
 
 import numpy as np
 from sklearn.linear_model import Ridge
@@ -66,9 +66,6 @@ You can add new methods, and make changes. The checker script performs:
     prediction = M.predict(test_x)
 
 It uses predictions to compare to the ground truth using the cost_function above.
-
-importing k-fold validation and doing training on the k-fold to not overfit
-then evaluate best lambda value from validation?
 """
 
 class Model():
@@ -101,19 +98,19 @@ class Model():
         pass
 
 def main():
-    # train_x_name = "train_x.csv"
-    # train_y_name = "train_y.csv"
+    train_x_name = "train_x.csv"
+    train_y_name = "train_y.csv"
 
     # google drive directories for work in google colab - comment if working in .py file and uncomment original paths
-    train_x_name = "/content/drive/My Drive/ETHZ/ProbabilisticAI/Projects/Project1/train_x.csv"
-    train_y_name = "/content/drive/My Drive/ETHZ/ProbabilisticAI/Projects/Project1/train_y.csv"
-    test_x_name = "/content/drive/My Drive/ETHZ/ProbabilisticAI/Projects/Project1/test_x.csv"
+    # train_x_name = "/content/drive/My Drive/ETHZ/ProbabilisticAI/Projects/Project1/train_x.csv"
+    # train_y_name = "/content/drive/My Drive/ETHZ/ProbabilisticAI/Projects/Project1/train_y.csv"
+    # test_x_name = "/content/drive/My Drive/ETHZ/ProbabilisticAI/Projects/Project1/test_x.csv"
 
     train_x = np.loadtxt(train_x_name, delimiter=',')
     train_y = np.loadtxt(train_y_name, delimiter=',')
 
     # load the test dateset
-    # test_x_name = "test_x.csv"
+    test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
     M = Model()
@@ -122,6 +119,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-prediction.shape()
 
