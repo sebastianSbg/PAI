@@ -23,6 +23,8 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, DotProduct, WhiteKernel
 from sklearn.kernel_approximation import Nystroem
 
+#import matplotlib as plt
+
 THRESHOLD = 0.5
 W1 = 1
 W2 = 20
@@ -79,7 +81,7 @@ class Model():
             TODO: enter your code here
         """
         self.lamda = 1
-        self.kernel = DotProduct() + WhiteKernel()
+        self.kernel = RBF() + WhiteKernel()
         self.model = GaussianProcessRegressor(kernel=self.kernel,random_state=0)
 
     def predict(self, test_x):
@@ -95,12 +97,44 @@ class Model():
         """
              TODO: enter your code here
         """
+        data_xy = np.column_stack((train_x,train_y))
+        rng = np.random.default_rng()
+        approx = 'Random'
 
         # Nyostream approximation (not implemented yet)
-        feature_map_nystroem = Nystroem(kernel='rbf',gamma=.2,random_state=1,n_components=300)
-        data_transformed = feature_map_nystroem.fit_transform(train_x)
+        if(approx == 'Nystroem'):
+            feature_map_nystroem = Nystroem(kernel='rbf',gamma=.2,random_state=1,n_components=300)
+            data_transformed = feature_map_nystroem.fit_transform(train_x)
+
+        # Select random samples from dataset
+        if(approx == 'Random'):
+            n = 3000
+            data_transformed = rng.choice(data_xy,size=n, axis=0, replace=False)
+
         
-        self.model.fit(train_x, train_y)
+        # Clusterize data into 
+        if(approx == 'Clusters'):
+            n_clusters = 15
+            dist_thresehold = 0.07
+            cluster_centers = rng.choice(data_xy,size=n_clusters, axis=0, replace=False)
+            data_transformed = np.zeros((1,3))
+            for i in range(n_clusters):
+                cluster_center = cluster_centers[i,0:3]
+                for point in data_xy:
+                    dist = np.linalg.norm(cluster_center-point)
+                    if(dist < dist_thresehold):
+                        point_app = np.reshape(point,(1,3))
+                        if(data_transformed.all()==0):
+                            data_transformed = point_app
+                            continue
+
+                        data_transformed = np.append(data_transformed,point_app,axis=0)
+
+        
+        data_transformed_x = data_transformed[:,0:2]
+        data_transformed_y = data_transformed[:,2]
+
+        self.model.fit(data_transformed_x, data_transformed_y)
 
         pass
 
@@ -121,9 +155,12 @@ def main():
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
     # Slice data set to run the code
+    """
     n=2000
     train_x=train_x[0:n, 0:2]
     train_y=train_y[0:n]
+    """
+    #plt.pyplot
 
     M = Model()
     M.fit_model(train_x, train_y)
