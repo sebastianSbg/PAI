@@ -17,13 +17,15 @@ taskbar. You can just navigate to the folder, right click and copy the directory
 # drive.mount('/content/drive')
 
 import numpy as np
+import scipy
+
 from sklearn.linear_model import Ridge
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, DotProduct, WhiteKernel
 from sklearn.kernel_approximation import Nystroem
 
-import scipy
+#import matplotlib as plt
 
 THRESHOLD = 0.5
 W1 = 1
@@ -43,7 +45,7 @@ def cost_function(true, predicted):
     # true above threshold (case 1)
     mask = true > THRESHOLD
     mask_w1 = np.logical_and(predicted > true, mask)
-    mask_w2 = np.logical_and(np.logical_and(predicted < true, predicted >= THRESHOLD), mask)
+    mask_w2 = np.logical_and(np.logical_and(predicted < true, predicted > THRESHOLD), mask)
     mask_w3 = np.logical_and(predicted < THRESHOLD, mask)
 
     cost[mask_w1] = cost[mask_w1] * W1
@@ -53,7 +55,7 @@ def cost_function(true, predicted):
     # true value below threshold (case 2)
     mask = true <= THRESHOLD
     mask_w1 = np.logical_and(predicted > true, mask)
-    mask_w2 = np.logical_and(predicted < true, mask)
+    mask_w2 = np.logical_and(predicted <= true, mask)
 
     cost[mask_w1] = cost[mask_w1] * W1
     cost[mask_w2] = cost[mask_w2] * W2
@@ -76,31 +78,6 @@ You can add new methods, and make changes. The checker script performs:
 It uses predictions to compare to the ground truth using the cost_function above.
 """
 
-def obj_func(hyperparams):
-
-    # how to acces the model from here?? We somehow want to get the results from the cost function here    
-
-    value = 0
-    return value
-
-def optimizer(obj_func, initial_theta, bounds):
-    # * 'obj_func' is the objective function to be minimized, which
-    #   takes the hyperparameters theta as parameter and an
-    #   optional flag eval_gradient, which determines if the
-    #   gradient is returned additionally to the function value
-    # * 'initial_theta': the initial value for theta, which can be
-    #   used by local optimizers
-    # * 'bounds': the bounds on the values of theta
-    #....
-    # Returned are the best found hyperparameters theta and
-    # the corresponding value of the target function.
-
-    optimalResult = scipy.optimize.minimize(obj_func, initial_theta, method='BFGS')
-    theta_opt = optimalResult.x
-    func_min = optimResult.fun
-
-    return theta_opt, func_min
-
 class Model():
 
     def __init__(self):
@@ -108,11 +85,8 @@ class Model():
             TODO: enter your code here
         """
         self.lamda = 1
-        self.kernel = DotProduct() + WhiteKernel()
-        print("kernel: ")
-
-        # is passing the kernel.theta the way one should pass the parameters of the GPR to the optimizer? Also not sure what to do with the bounds
-        self.model = GaussianProcessRegressor(kernel=self.kernel,random_state=0, optimizer=optimizer(obj_func, self.kernel.theta, self.kernel.bounds))
+        self.kernel = RBF() + WhiteKernel()
+        self.model = GaussianProcessRegressor(kernel=None, optimizer=self.optimizer0, n_restarts_optimizer=1,random_state=0)
 
     def predict(self, test_x):
         """
@@ -127,14 +101,78 @@ class Model():
         """
              TODO: enter your code here
         """
+        data_xy = np.column_stack((train_x,train_y))
+        rng = np.random.default_rng()
+        approx = 'Random'
 
         # Nyostream approximation (not implemented yet)
-        feature_map_nystroem = Nystroem(kernel='rbf',gamma=.2,random_state=1,n_components=300)
-        data_transformed = feature_map_nystroem.fit_transform(train_x)
+        if(approx == 'Nystroem'):
+            feature_map_nystroem = Nystroem(kernel='rbf',gamma=.2,random_state=1,n_components=300)
+            data_transformed = feature_map_nystroem.fit_transform(train_x)
+
+        # Select random samples from dataset
+        if(approx == 'Random'):
+            n = 3000
+            data_transformed = rng.choice(data_xy,size=n, axis=0, replace=False)
+
         
-        self.model.fit(train_x, train_y)
+        # Clusterize data into 
+        if(approx == 'Clusters'):
+            n_clusters = 15
+            dist_thresehold = 0.07
+            cluster_centers = rng.choice(data_xy,size=n_clusters, axis=0, replace=False)
+            data_transformed = np.zeros((1,3))
+            for i in range(n_clusters):
+                cluster_center = cluster_centers[i,0:3]
+                for point in data_xy:
+                    dist = np.linalg.norm(cluster_center-point)
+                    if(dist < dist_thresehold):
+                        point_app = np.reshape(point,(1,3))
+                        if(data_transformed.all()==0):
+                            data_transformed = point_app
+                            continue
+
+                        data_transformed = np.append(data_transformed,point_app,axis=0)
+
+        
+        data_transformed_x = data_transformed[:,0:2]
+        data_transformed_y = data_transformed[:,2]        
+        
+        self.data_x = data_transformed_x
+        self.data_y = data_transformed_y
+
+        self.model.fit(data_transformed_x, data_transformed_y)
+
+
 
         pass
+
+    def obj_func(self,hyperparams)->float:
+
+        self.model.kernel.theta = hyperparams
+        prediction = self.model.predict(self.data_x)
+        cost = cost_function(self.data_y,prediction)
+        return cost
+
+    
+    def optimizer0(self, obj_func, initial_theta, bounds):
+        # * 'obj_func' is the objective function to be minimized, which
+        #   takes the hyperparameters theta as parameter and an
+        #   optional flag eval_gradient, which determines if the
+        #   gradient is returned additionally to the function value
+        # * 'initial_theta': the initial value for theta, which can be
+        #   used by local optimizers
+        # * 'bounds': the bounds on the values of theta
+        #....
+        # Returned are the best found hyperparameters theta and
+        # the corresponding value of the target function.
+        obj_func = self.obj_func
+        initial_theta = self.model.kernel.theta
+        optimalResult = scipy.optimize.minimize(obj_func, initial_theta, method='BFGS')
+        theta_opt = optimalResult.x
+        func_min = optimalResult.fun
+        return theta_opt, func_min
+
 
 def main():
     train_x_name = "train_x.csv"
@@ -152,11 +190,6 @@ def main():
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
-    # Slice data set to run the code
-    n=2000
-    train_x=train_x[0:n, 0:2]
-    train_y=train_y[0:n]
-
     M = Model()
     M.fit_model(train_x, train_y)
     prediction = M.predict(test_x)
@@ -164,4 +197,3 @@ def main():
 if __name__ == "__main__":
     main()
     print("Completed sucessfully")
-

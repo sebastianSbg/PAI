@@ -17,6 +17,8 @@ taskbar. You can just navigate to the folder, right click and copy the directory
 # drive.mount('/content/drive')
 
 import numpy as np
+import scipy
+
 from sklearn.linear_model import Ridge
 
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -134,11 +136,43 @@ class Model():
 
         
         data_transformed_x = data_transformed[:,0:2]
-        data_transformed_y = data_transformed[:,2]
+        data_transformed_y = data_transformed[:,2]        
+        
+        self.data_x = data_transformed_x
+        self.data_y = data_transformed_y
 
         self.model.fit(data_transformed_x, data_transformed_y)
 
+
+
         pass
+
+    def obj_func(self,hyperparams):
+
+        # how to acces the model from here?? We somehow want to get the results from the cost function here 
+        self.model.set_params = hyperparams
+        prediction = self.model.predict(self.data_x)
+        cost = cost_function(self.data_y,prediction)
+        
+        return cost
+
+    def optimizer(self, obj_func, initial_theta, bounds):
+        # * 'obj_func' is the objective function to be minimized, which
+        #   takes the hyperparameters theta as parameter and an
+        #   optional flag eval_gradient, which determines if the
+        #   gradient is returned additionally to the function value
+        # * 'initial_theta': the initial value for theta, which can be
+        #   used by local optimizers
+        # * 'bounds': the bounds on the values of theta
+        #....
+        # Returned are the best found hyperparameters theta and
+        # the corresponding value of the target function.
+
+        optimalResult = scipy.optimize.minimize(obj_func, initial_theta, method='BFGS')
+        theta_opt = optimalResult.x
+        #func_min = optimalResult.fun
+        return theta_opt
+
 
 def main():
     train_x_name = "train_x.csv"
