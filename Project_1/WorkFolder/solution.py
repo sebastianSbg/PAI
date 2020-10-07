@@ -43,7 +43,7 @@ def cost_function(true, predicted):
     # true above threshold (case 1)
     mask = true > THRESHOLD
     mask_w1 = np.logical_and(predicted > true, mask)
-    mask_w2 = np.logical_and(np.logical_and(predicted < true, predicted > THRESHOLD), mask)
+    mask_w2 = np.logical_and(np.logical_and(predicted < true, predicted >= THRESHOLD), mask)
     mask_w3 = np.logical_and(predicted < THRESHOLD, mask)
 
     cost[mask_w1] = cost[mask_w1] * W1
@@ -59,8 +59,10 @@ def cost_function(true, predicted):
     cost[mask_w2] = cost[mask_w2] * W2
 
     # reward for correctly identified safe regions
-    reward = W4 * np.logical_and(predicted <= THRESHOLD, true <= THRESHOLD)
+    reward = W4 * np.logical_and(predicted < THRESHOLD, true < THRESHOLD)
 
+    if reward is None:
+        reward = 0
     return np.mean(cost) - np.mean(reward)
 
 """Fill in the methods of the Model. Please do not change the given methods for the checker script to work.

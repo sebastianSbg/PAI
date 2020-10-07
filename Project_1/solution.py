@@ -53,14 +53,16 @@ def cost_function(true, predicted):
     # true value below threshold (case 2)
     mask = true <= THRESHOLD
     mask_w1 = np.logical_and(predicted > true, mask)
-    mask_w2 = np.logical_and(predicted < true, mask)
+    mask_w2 = np.logical_and(predicted <= true, mask)
 
     cost[mask_w1] = cost[mask_w1] * W1
     cost[mask_w2] = cost[mask_w2] * W2
 
     # reward for correctly identified safe regions
-    reward = W4 * np.logical_and(predicted <= THRESHOLD, true <= THRESHOLD)
+    reward = W4 * np.logical_and(predicted < THRESHOLD, true < THRESHOLD)
 
+    if reward is None:
+        reward = 0
     return np.mean(cost) - np.mean(reward)
 
 """Fill in the methods of the Model. Please do not change the given methods for the checker script to work.
@@ -153,14 +155,6 @@ def main():
     # load the test dateset
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
-
-    # Slice data set to run the code
-    """
-    n=2000
-    train_x=train_x[0:n, 0:2]
-    train_y=train_y[0:n]
-    """
-    #plt.pyplot
 
     M = Model()
     M.fit_model(train_x, train_y)
