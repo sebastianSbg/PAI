@@ -22,7 +22,7 @@ import scipy
 from sklearn.linear_model import Ridge
 
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, DotProduct, WhiteKernel
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel, DotProduct, ConstantKernel 
 from sklearn.kernel_approximation import Nystroem
 
 #import matplotlib as plt
@@ -84,7 +84,7 @@ class Model():
             TODO: enter your code here
         """
         self.lamda = 1
-        self.kernel = RBF() + WhiteKernel()
+        self.kernel = 0.5*RBF() + ConstantKernel()
         self.model = GaussianProcessRegressor(kernel=self.kernel, n_restarts_optimizer=0,random_state=0)
 
     def predict(self, test_x):
