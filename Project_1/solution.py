@@ -92,8 +92,6 @@ class Model():
         """
             TODO: enter your code here
         """
-        ## dummy code below 
-        # y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
         y = self.model.predict(test_x)
         return y
 
@@ -150,7 +148,7 @@ class Model():
     def obj_func(self,hyperparams):
 
         # how to acces the model from here?? We somehow want to get the results from the cost function here 
-        self.model.set_params = hyperparams
+        self.model.kernel.theta = hyperparams
         prediction = self.model.predict(self.data_x)
         cost = cost_function(self.data_y,prediction)
         
@@ -168,9 +166,11 @@ class Model():
         # Returned are the best found hyperparameters theta and
         # the corresponding value of the target function.
 
+        obj_func = self.obj_func
+        initial_theta = self.model.kernel.theta
         optimalResult = scipy.optimize.minimize(obj_func, initial_theta, method='BFGS')
         theta_opt = optimalResult.x
-        #func_min = optimalResult.fun
+
         return theta_opt
 
 
@@ -193,6 +193,7 @@ def main():
     M = Model()
     M.fit_model(train_x, train_y)
     prediction = M.predict(test_x)
+    print(prediction)
 
 if __name__ == "__main__":
     main()
