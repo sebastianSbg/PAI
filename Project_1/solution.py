@@ -70,7 +70,6 @@ def cost_function(true, predicted):
 """Fill in the methods of the Model. Please do not change the given methods for the checker script to work.
 You can add new methods, and make changes. The checker script performs:
 
-
     M = Model()
     M.fit_model(train_x,train_y)
     prediction = M.predict(test_x)
@@ -86,7 +85,7 @@ class Model():
         """
         self.lamda = 1
         self.kernel = RBF() + WhiteKernel()
-        self.model = GaussianProcessRegressor(kernel=self.kernel,random_state=0)
+        self.model = GaussianProcessRegressor(kernel=self.kernel, n_restarts_optimizer=0,random_state=0)
 
     def predict(self, test_x):
         """
@@ -110,13 +109,13 @@ class Model():
 
         # Select random samples from dataset
         if(approx == 'Random'):
-            n = 3000
+            n = 6000
             data_transformed = rng.choice(data_xy,size=n, axis=0, replace=False)
 
         
         # Clusterize data into 
         if(approx == 'Clusters'):
-            n_clusters = 15
+            n_clusters = 20
             dist_thresehold = 0.07
             cluster_centers = rng.choice(data_xy,size=n_clusters, axis=0, replace=False)
             data_transformed = np.zeros((1,3))
@@ -139,22 +138,24 @@ class Model():
         self.data_x = data_transformed_x
         self.data_y = data_transformed_y
 
-        self.model.fit(data_transformed_x, data_transformed_y)
+        self.model.fit(data_transformed_x[0:2,0:2], data_transformed_y[0:2])
+
+        self.model.kernel.theta = self.optimizer()
 
 
 
         pass
 
-    def obj_func(self,hyperparams):
+    def obj_func(self,hyperparams)->float:
 
-        # how to acces the model from here?? We somehow want to get the results from the cost function here 
-        self.model.kernel.theta = hyperparams
+        self.model.kernel_.theta = hyperparams
         prediction = self.model.predict(self.data_x)
         cost = cost_function(self.data_y,prediction)
-        
+        self.model.kernel.theta = hyperparams
         return cost
 
-    def optimizer(self, obj_func, initial_theta, bounds):
+    
+    def optimizer(self):
         # * 'obj_func' is the objective function to be minimized, which
         #   takes the hyperparameters theta as parameter and an
         #   optional flag eval_gradient, which determines if the
@@ -166,11 +167,11 @@ class Model():
         # Returned are the best found hyperparameters theta and
         # the corresponding value of the target function.
 
-        obj_func = self.obj_func
-        initial_theta = self.model.kernel.theta
-        optimalResult = scipy.optimize.minimize(obj_func, initial_theta, method='BFGS')
+        initial_theta = self.model.kernel_.theta
+        optimalResult = scipy.optimize.minimize(self.obj_func, initial_theta, method='TNC')
         theta_opt = optimalResult.x
-
+        final_cost = optimalResult.fun
+        print(final_cost, '\n')
         return theta_opt
 
 
@@ -190,10 +191,9 @@ def main():
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
+
     M = Model()
     M.fit_model(train_x, train_y)
-    prediction = M.predict(test_x)
-    print(prediction)
 
 if __name__ == "__main__":
     main()

@@ -70,7 +70,6 @@ def cost_function(true, predicted):
 """Fill in the methods of the Model. Please do not change the given methods for the checker script to work.
 You can add new methods, and make changes. The checker script performs:
 
-
     M = Model()
     M.fit_model(train_x,train_y)
     prediction = M.predict(test_x)
@@ -80,20 +79,18 @@ It uses predictions to compare to the ground truth using the cost_function above
 
 class Model():
 
-    def __init__(self):
+    def __init__(self,fac1,fac2):
         """
             TODO: enter your code here
         """
         self.lamda = 1
-        self.kernel = RBF() + WhiteKernel()
-        self.model = GaussianProcessRegressor(kernel=None, optimizer=self.optimizer0, n_restarts_optimizer=1,random_state=0)
+        self.kernel = RBF()*fac1 + WhiteKernel()*fac2
+        self.model = GaussianProcessRegressor(kernel=self.kernel, n_restarts_optimizer=0,random_state=0)
 
     def predict(self, test_x):
         """
             TODO: enter your code here
         """
-        ## dummy code below 
-        # y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
         y = self.model.predict(test_x)
         return y
 
@@ -112,7 +109,7 @@ class Model():
 
         # Select random samples from dataset
         if(approx == 'Random'):
-            n = 3000
+            n = 1500
             data_transformed = rng.choice(data_xy,size=n, axis=0, replace=False)
 
         
@@ -141,7 +138,9 @@ class Model():
         self.data_x = data_transformed_x
         self.data_y = data_transformed_y
 
-        self.model.fit(data_transformed_x, data_transformed_y)
+        self.model.fit(data_transformed_x[0:2,0:2], data_transformed_y[0:2])
+
+        self.model.kernel.theta = self.optimizer()
 
 
 
@@ -149,13 +148,14 @@ class Model():
 
     def obj_func(self,hyperparams)->float:
 
-        self.model.kernel.theta = hyperparams
+        self.model.kernel_.theta = hyperparams
         prediction = self.model.predict(self.data_x)
         cost = cost_function(self.data_y,prediction)
+        self.model.kernel.theta = hyperparams
         return cost
 
     
-    def optimizer0(self, obj_func, initial_theta, bounds):
+    def optimizer(self):
         # * 'obj_func' is the objective function to be minimized, which
         #   takes the hyperparameters theta as parameter and an
         #   optional flag eval_gradient, which determines if the
@@ -166,12 +166,13 @@ class Model():
         #....
         # Returned are the best found hyperparameters theta and
         # the corresponding value of the target function.
-        obj_func = self.obj_func
-        initial_theta = self.model.kernel.theta
-        optimalResult = scipy.optimize.minimize(obj_func, initial_theta, method='BFGS')
+
+        initial_theta = self.model.kernel_.theta
+        optimalResult = scipy.optimize.minimize(self.obj_func, initial_theta, method='TNC')
         theta_opt = optimalResult.x
-        func_min = optimalResult.fun
-        return theta_opt, func_min
+        final_cost = optimalResult.fun
+        print(final_cost)
+        return theta_opt
 
 
 def main():
@@ -190,9 +191,13 @@ def main():
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
-    M = Model()
-    M.fit_model(train_x, train_y)
-    prediction = M.predict(test_x)
+    for i in range(10):
+        for j in range(10):
+            print(i,j)
+            M = Model((i+1)*0.1,(j+1)*0.1)
+            M.fit_model(train_x, train_y)
+    #prediction = M.predict(test_x)
+    #print(cost_function(train_y, M.predict(train_x)))
 
 if __name__ == "__main__":
     main()
