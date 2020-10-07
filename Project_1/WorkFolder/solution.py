@@ -22,7 +22,7 @@ import scipy
 from sklearn.linear_model import Ridge
 
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, DotProduct, WhiteKernel
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel, DotProduct, ConstantKernel 
 from sklearn.kernel_approximation import Nystroem
 
 #import matplotlib as plt
@@ -79,12 +79,12 @@ It uses predictions to compare to the ground truth using the cost_function above
 
 class Model():
 
-    def __init__(self,fac1,fac2):
+    def __init__(self,fact1, fact2):
         """
             TODO: enter your code here
         """
         self.lamda = 1
-        self.kernel = RBF()*fac1 + WhiteKernel()*fac2
+        self.kernel = fact1*RBF() + fact2*ConstantKernel()
         self.model = GaussianProcessRegressor(kernel=self.kernel, n_restarts_optimizer=0,random_state=0)
 
     def predict(self, test_x):
@@ -100,7 +100,7 @@ class Model():
         """
         data_xy = np.column_stack((train_x,train_y))
         rng = np.random.default_rng()
-        approx = 'Random'
+        approx = 'None'
 
         # Nyostream approximation (not implemented yet)
         if(approx == 'Nystroem'):
@@ -109,13 +109,13 @@ class Model():
 
         # Select random samples from dataset
         if(approx == 'Random'):
-            n = 1500
+            n = 6000
             data_transformed = rng.choice(data_xy,size=n, axis=0, replace=False)
 
         
         # Clusterize data into 
         if(approx == 'Clusters'):
-            n_clusters = 15
+            n_clusters = 20
             dist_thresehold = 0.07
             cluster_centers = rng.choice(data_xy,size=n_clusters, axis=0, replace=False)
             data_transformed = np.zeros((1,3))
@@ -131,6 +131,9 @@ class Model():
 
                         data_transformed = np.append(data_transformed,point_app,axis=0)
 
+        # Using entire data set
+        if(approx == 'None'):
+            data_transformed = data_xy
         
         data_transformed_x = data_transformed[:,0:2]
         data_transformed_y = data_transformed[:,2]        
@@ -171,7 +174,7 @@ class Model():
         optimalResult = scipy.optimize.minimize(self.obj_func, initial_theta, method='TNC')
         theta_opt = optimalResult.x
         final_cost = optimalResult.fun
-        print(final_cost)
+        print(final_cost, '\n')
         return theta_opt
 
 
@@ -191,13 +194,11 @@ def main():
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
-    for i in range(10):
-        for j in range(10):
-            print(i,j)
-            M = Model((i+1)*0.1,(j+1)*0.1)
+    for i in range(1,11):
+        for j in range(1,11):
+            print(i,' ',j)
+            M = Model(i,j)
             M.fit_model(train_x, train_y)
-    #prediction = M.predict(test_x)
-    #print(cost_function(train_y, M.predict(train_x)))
 
 if __name__ == "__main__":
     main()

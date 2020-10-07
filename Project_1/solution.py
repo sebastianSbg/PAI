@@ -84,7 +84,7 @@ class Model():
             TODO: enter your code here
         """
         self.lamda = 1
-        self.kernel = 0.5*RBF() + ConstantKernel()
+        self.kernel = 0.2*RBF() + 5*ConstantKernel()
         self.model = GaussianProcessRegressor(kernel=self.kernel, n_restarts_optimizer=0,random_state=0)
 
     def predict(self, test_x):
@@ -100,7 +100,7 @@ class Model():
         """
         data_xy = np.column_stack((train_x,train_y))
         rng = np.random.default_rng()
-        approx = 'Random'
+        approx = 'None'
 
         # Nyostream approximation (not implemented yet)
         if(approx == 'Nystroem'):
@@ -131,6 +131,9 @@ class Model():
 
                         data_transformed = np.append(data_transformed,point_app,axis=0)
 
+        # Using entire data set
+        if(approx == 'None'):
+            data_transformed = data_xy
         
         data_transformed_x = data_transformed[:,0:2]
         data_transformed_y = data_transformed[:,2]        
