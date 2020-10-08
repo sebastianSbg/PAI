@@ -165,14 +165,6 @@ def main():
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
-    '''
-    for i in range(1,10): 
-        for j in range(1,10):
-            M = Model(i*0.01,j*0.01)
-            M.fit_model(train_x, train_y)
-            prediction = M.predict(train_x)
-            print('(',i,',', j, ') :',cost_function(train_y, prediction))
-    '''
     M = Model()
     M.fit_model(train_x,train_y)
     prediction = M.predict(train_x)
