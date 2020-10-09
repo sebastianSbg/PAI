@@ -124,17 +124,39 @@ class Model():
         self.data_y = train_y
 
         self.model.fit(data_transformed_x, data_transformed_y)
-
         self.model.kernel_.theta = self.optimizer()
 
+        # Trying different initializartions via cross validation
+        n_restarts=30
+        cost_cv = np.zeros((n_restarts,1))
+        theta = np.zeros((n_restarts, self.model.kernel_.theta.shape[0]))
+        for i in range(n_restarts):
+
+            # Random parametre initiallization
+            random_initialization = np.random.randn(1,self.model.kernel_.theta.shape[0])[0,:]
+            print('\n',random_initialization)
+            self.model.kernel_.theta = random_initialization
+            self.model.kernel_.theta = self.optimizer()
+            print(self.model.kernel_)
+
+            # Select new cross validation data set
+            d = rng.choice(data_xy,size=200, axis=0, replace=False)
+            x = d[:,0:2]
+            y = d[:,2:3]
+            cost_cv[i] = cost_function(y,self.model.predict(x))
+            theta[i,:] = self.model.kernel_.theta
+            print(cost_cv[i])
+        
+        self.model.kernel_.theta = theta[np.argmin(cost_cv,axis=1)[0],:]
 
     def obj_func(self,hyperparams)->float:
 
-            self.model.kernel_.theta = hyperparams
-            prediction = self.model.predict(self.data_x)
-            cost = cost_function(self.data_y,prediction)
-            self.model.kernel.theta = hyperparams
-            return cost
+        self.model.kernel_.theta = hyperparams
+        prediction = self.model.predict(self.data_x)
+        cost = cost_function(self.data_y,prediction)
+        self.model.kernel.theta = hyperparams
+
+        return cost
 
     
     def optimizer(self):
@@ -168,7 +190,7 @@ def main():
     M = Model()
     M.fit_model(train_x,train_y)
     prediction = M.predict(train_x)
-    print(cost_function(prediction,train_y))
+    print(cost_function(train_y, prediction))
 
 if __name__ == "__main__":
     main()
