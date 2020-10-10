@@ -65,8 +65,10 @@ class Model():
         """
             TODO: enter your code here
         """
-        self.kernel = ConstantKernel() + ConstantKernel()*RBF()
-        self.model = GaussianProcessRegressor(kernel=self.kernel, n_restarts_optimizer=0,random_state=0)
+
+        nu  = 3/2
+        self.kernel_ = ConstantKernel() + Matern()
+        self.model = GaussianProcessRegressor(kernel=self.kernel_, n_restarts_optimizer=0,random_state=0)
 
     def predict(self, test_x):
         """
@@ -84,6 +86,7 @@ class Model():
         rng = np.random.default_rng()
         approx = 'Random'
 
+
         # Nyostream approximation (not implemented yet)
         if(approx == 'Nystroem'):
             feature_map_nystroem = Nystroem(kernel='rbf',gamma=.2,random_state=1,n_components=300)
@@ -91,9 +94,10 @@ class Model():
 
         # Select random samples from dataset
         if(approx == 'Random'):
-            n = 10
+            n = 100
+            print("Size normal data: " + str(data_xy.shape))
             data_transformed = rng.choice(data_xy,size=n, axis=0, replace=False)
-
+            print("Size transformed data: " + str(data_transformed.shape))
         
         # Clusterize data into 
         if(approx == 'Clusters'):
@@ -127,7 +131,7 @@ class Model():
         self.model.kernel_.theta = self.optimizer()
 
         # Trying different initializartions via cross validation
-        n_restarts=30
+        n_restarts=1
         cost_cv = np.zeros((n_restarts,1))
         theta = np.zeros((n_restarts, self.model.kernel_.theta.shape[0]))
         for i in range(n_restarts):
