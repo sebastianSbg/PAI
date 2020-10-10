@@ -62,30 +62,22 @@ It uses predictions to compare to the ground truth using the cost_function above
 class Model():
 
     def __init__(self):
-        """
-            TODO: enter your code here
-        """
-
-        nu  = 3/2
-        self.kernel_ = ConstantKernel() + Matern()
+            
+        self.kernel_ = ConstantKernel() + ConstantKernel()*RBF()
         self.model = GaussianProcessRegressor(kernel=self.kernel_, n_restarts_optimizer=0,random_state=0)
 
-    def predict(self, test_x):
-        """
-            TODO: enter your code here
-        """
+    def predict(self, test_x):       
+        # predict with model at test point test_x 
 
         y = self.model.predict(test_x)
         return y
 
-    def fit_model(self, train_x, train_y):
-        """
-             TODO: enter your code here
-        """
+    def load_and_tranform_data(self, approx, train_x, train_y):        
         data_xy = np.column_stack((train_x,train_y))
         rng = np.random.default_rng()
-        approx = 'Random'
 
+        # truncate data set to cut off all points where x1 < -0.5
+        #data_xy = data_xy[data_xy[:,0] >= -0.5, :]        
 
         # Nyostream approximation (not implemented yet)
         if(approx == 'Nystroem'):
@@ -95,9 +87,7 @@ class Model():
         # Select random samples from dataset
         if(approx == 'Random'):
             n = 100
-            print("Size normal data: " + str(data_xy.shape))
-            data_transformed = rng.choice(data_xy,size=n, axis=0, replace=False)
-            print("Size transformed data: " + str(data_transformed.shape))
+            data_transformed = rng.choice(data_xy,size=n, axis=0, replace=False)            
         
         # Clusterize data into 
         if(approx == 'Clusters'):
@@ -120,16 +110,24 @@ class Model():
         # Using entire data set
         if(approx == 'None'):
             data_transformed = data_xy
-        
-        data_transformed_x = data_transformed[:,0:2]
-        data_transformed_y = data_transformed[:,2]        
-        
-        self.data_x = train_x
-        self.data_y = train_y
 
-        self.model.fit(data_transformed_x, data_transformed_y)
+        print("Size of transformed data: " + str(data_transformed.shape))    
+        return data_transformed
+
+    def fit_model(self, train_x, train_y):
+
+        # load and transform data according to different methods
+        data = self.load_and_tranform_data('Random', train_x, train_y)
+        self.data_x = data[:,0:2]
+        self.data_y = data[:,2]
+
+        # initliaze model with kernel (necessary before actually doing optimization with our custom cost function)
+        self.model.fit(self.data_x, self.data_y)                
+
+        # actually optimize hyperparameters according to custom cost function
         self.model.kernel_.theta = self.optimizer()
 
+        """ CROSS VALIDATION
         # Trying different initializartions via cross validation
         n_restarts=1
         cost_cv = np.zeros((n_restarts,1))
@@ -152,29 +150,17 @@ class Model():
             print(cost_cv[i])
         
         self.model.kernel_.theta = theta[np.argmin(cost_cv,axis=1)[0],:]
+        """
 
     def obj_func(self,hyperparams)->float:
-
         self.model.kernel_.theta = hyperparams
         prediction = self.model.predict(self.data_x)
         cost = cost_function(self.data_y,prediction)
-        self.model.kernel.theta = hyperparams
+        self.model.kernel_.theta = hyperparams
 
         return cost
 
-    
     def optimizer(self):
-        # * 'obj_func' is the objective function to be minimized, which
-        #   takes the hyperparameters theta as parameter and an
-        #   optional flag eval_gradient, which determines if the
-        #   gradient is returned additionally to the function value
-        # * 'initial_theta': the initial value for theta, which can be
-        #   used by local optimizers
-        # * 'bounds': the bounds on the values of theta
-        #....
-        # Returned are the best found hyperparameters theta and
-        # the corresponding value of the target function.
-
         initial_theta = self.model.kernel_.theta
         optimalResult = scipy.optimize.minimize(self.obj_func, initial_theta, method='BFGS')
         theta_opt = optimalResult.x
@@ -194,7 +180,7 @@ def main():
     M = Model()
     M.fit_model(train_x,train_y)
     prediction = M.predict(train_x)
-    print(cost_function(train_y, prediction))
+    print("Cost on train_x data: " + str(cost_function(train_y, prediction)))
 
 if __name__ == "__main__":
     main()
