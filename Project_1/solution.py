@@ -142,7 +142,7 @@ class Model():
 
         # CROSS VALIDATION
         # Trying different initializartions via cross validation
-        n_restarts=1
+        n_restarts= 100
         rng = np.random.default_rng()
         cost_cv = np.zeros((n_restarts,1))
         theta = np.zeros((n_restarts, self.model.coef_.shape[0]))
