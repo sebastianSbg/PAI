@@ -2,9 +2,11 @@ import numpy as np
 
 import scipy
 
+from sklearn.kernel_approximation import RBFSampler
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern, WhiteKernel, DotProduct, ExpSineSquared, RationalQuadratic, Sum
 from sklearn.kernel_approximation import Nystroem
+from sklearn.linear_model import BayesianRidge, Ridge
 
 ## Constant for Cost function
 THRESHOLD = 0.5
@@ -63,8 +65,9 @@ class Model():
 
     def __init__(self):
             
-        self.kernel_ = ConstantKernel() + ConstantKernel()*RBF()
-        self.model = GaussianProcessRegressor(kernel=self.kernel_, n_restarts_optimizer=0,random_state=0)
+        #self.kernel_ = ConstantKernel() + ConstantKernel()*RBF()
+        #self.model = GaussianProcessRegressor(kernel=self.kernel_, n_restarts_optimizer=0,random_state=0)
+        self.model =  BayesianRidge();
 
     def predict(self, test_x):       
         # predict with model at test point test_x 
@@ -81,8 +84,9 @@ class Model():
 
         # Nyostream approximation (not implemented yet)
         if(approx == 'Nystroem'):
-            feature_map_nystroem = Nystroem(kernel='rbf',gamma=.2,random_state=1,n_components=300)
-            data_transformed = feature_map_nystroem.fit_transform(train_x)
+            feature_map_nystroem = Nystroem(kernel='rbf',n_components=2)                        
+            X_features = feature_map_nystroem.fit_transform(data_xy[:,0:2])
+            data_transformed = np.column_stack((X_features, data_xy[:,2]))
 
         # Select random samples from dataset
         if(approx == 'Random'):
@@ -107,6 +111,13 @@ class Model():
 
                         data_transformed = np.append(data_transformed,point_app,axis=0)
 
+        #  RBFSampler - Approximates feature map of an RBF kernel by Monte Carlo approximation of its Fourier transform
+        if(approx == 'RBFSampler'):
+            rbf_feature = RBFSampler()
+            X_features = rbf_feature.fit_transform(data_xy[:,0:2])
+            data_transformed = np.column_stack((X_features, data_xy[:,2]))
+
+
         # Using entire data set
         if(approx == 'None'):
             data_transformed = data_xy
@@ -117,53 +128,55 @@ class Model():
     def fit_model(self, train_x, train_y):
 
         # load and transform data according to different methods
-        data = self.load_and_tranform_data('Random', train_x, train_y)
+        data = self.load_and_tranform_data('Nystroem', train_x, train_y)
         self.data_x = data[:,0:2]
         self.data_y = data[:,2]
 
-        # initliaze model with kernel (necessary before actually doing optimization with our custom cost function)
+        # initliaze model with kernel (necessary before actually doing optimization with our custom cost function)        
         self.model.fit(self.data_x, self.data_y)                
 
         # actually optimize hyperparameters according to custom cost function
-        self.model.kernel_.theta = self.optimizer()
+        
 
-        """ CROSS VALIDATION
+        self.model.coef_ =  self.optimizer()              
+
+        # CROSS VALIDATION
         # Trying different initializartions via cross validation
         n_restarts=1
+        rng = np.random.default_rng()
         cost_cv = np.zeros((n_restarts,1))
-        theta = np.zeros((n_restarts, self.model.kernel_.theta.shape[0]))
+        theta = np.zeros((n_restarts, self.model.coef_.shape[0]))
         for i in range(n_restarts):
 
             # Random parametre initiallization
-            random_initialization = np.random.randn(1,self.model.kernel_.theta.shape[0])[0,:]
+            random_initialization = np.random.randn(1,self.model.coef_.shape[0])[0,:]
             print('\n',random_initialization)
-            self.model.kernel_.theta = random_initialization
-            self.model.kernel_.theta = self.optimizer()
-            print(self.model.kernel_)
+            self.model.coef_ = random_initialization
+            self.model.coef_ = self.optimizer()
+            print(self.model.coef_)
 
             # Select new cross validation data set
-            d = rng.choice(data_xy,size=200, axis=0, replace=False)
+            d = rng.choice(data,size=200, axis=0, replace=False)
             x = d[:,0:2]
             y = d[:,2:3]
             cost_cv[i] = cost_function(y,self.model.predict(x))
-            theta[i,:] = self.model.kernel_.theta
+            theta[i,:] = self.model.coef_
             print(cost_cv[i])
         
-        self.model.kernel_.theta = theta[np.argmin(cost_cv,axis=1)[0],:]
-        """
+        self.model.coef_ = theta[np.argmin(cost_cv,axis=1)[0],:]        
 
     def obj_func(self,hyperparams)->float:
-        self.model.kernel_.theta = hyperparams
+        self.model.coef_ = hyperparams
         prediction = self.model.predict(self.data_x)
         cost = cost_function(self.data_y,prediction)
-        self.model.kernel_.theta = hyperparams
+        self.model.coef_ = hyperparams
 
         return cost
 
     def optimizer(self):
-        initial_theta = self.model.kernel_.theta
+        initial_theta = self.model.coef_                
         optimalResult = scipy.optimize.minimize(self.obj_func, initial_theta, method='BFGS')
-        theta_opt = optimalResult.x
+        theta_opt = optimalResult.x        
         return theta_opt
 
 def main():
