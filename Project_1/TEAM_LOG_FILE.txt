@@ -4,5 +4,11 @@ Sebastian 2020_10_11 10:56am:
 - RationalQuadratic() + WhiteKernel() seems to perfom best thus far
 - System crashes very frequently with 800 data points or so - considering using google colab, since it's all handles with the server. Crashes are recovered more easily plus there is more RAM available
 - Here is data on the Nystroem approximation: https://scikit-learn.org/stable/modules/generated/sklearn.kernel_approximation.Nystroem.html
-- Perhaps we should consider normailzing the data?
+- Perhaps we should consider normalizing the data? - not sure about this though
+- Note: can we use indentation/tab instead of spaces for the code? There seem to be consistancy issues with tabs and spaces
+- I think we should focus on getting the Nyostrom approximation right! Think this will move us forward the most. The transformed data is changed in the dimension of features, not the dimensions of N data points -> let's try to figure out how to solve this - perhaps transpose?
+- Tried NYOSTROEM SELECTION by concatenating data_x and data_y and using the transpose as input to Nystroem --> this didn't work well since the approximation is limited by n in an nxm matrix - Hence the output was only 3x3
+- Perhaps we can compare Euklidian distances between X_test and X_train and only train on the data points which are closest to the test points
+- Also bagging might be something that is feasible this reduces to O(n_bags*n_perbag^3): https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.BaggingClassifier.html
+Here is a ling for bagging: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.BaggingClassifier.html
                                                                                                                                 

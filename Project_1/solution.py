@@ -15,7 +15,7 @@ W2 = 20
 W3 = 100
 W4 = 0.04
 
-Npoints = 500
+Npoints = 700
 
 
 def cost_function(true, predicted):
@@ -129,8 +129,23 @@ class Model():
 		self.data_x = train_x[0:Npoints,:] #data[:,0:2]
 		self.data_y = train_y[0:Npoints] #data[:,2]
 		
-# 		feature_map_nystroem = Nystroem(gamma=.2, random_state=0, n_components=200)
-# 		data_transformed = feature_map_nystroem.fit_transform(self.data_x)
+		# Tried NYOSTROEM SELECTION by concatenating data_x and data_y and using the transpose as input to Nystroem --> this didn't work well since the approximation is limited by n in an nxm matrix
+		# Hence the output was only 3x3
+# 		# merge data into one matrix for selection in nyostroem selector
+# 		N, f = np.shape(self.data_x)
+
+# 		data = np.zeros((N, 3))
+# 		data[:,0:2] = self.data_x
+# 		data[:,2] = self.data_y[:]
+# 		
+# 		data_trans = np.transpose(data)
+# 		
+# 		# TO DO: incorporate transformed data into model.fit
+# 		feature_map_nystroem = Nystroem(gamma=.2, random_state=0, n_components=1000)
+# 		data_transformed = feature_map_nystroem.fit_transform(data_trans)
+# 		
+# 		X_transformed = np.transpose(data_transformed[0:2,:])
+# 		y_transformed = np.transpose(data_transformed[2,:])
 
 		# initliaze model with kernel (necessary before actually doing optimization with our custom cost function)
 		self.model.fit(self.data_x, self.data_y)                
@@ -188,6 +203,10 @@ def main():
 	# load the test dateset
 	test_x_name = "test_x.csv"
 	test_x = np.loadtxt(test_x_name, delimiter=',')
+	
+	# choose smallest Euklidian distances between train_x and test_x
+# 	distances = np.sqrt((train_x[:,0] - test_x[0,:])**2 + (train_x[:,1] - test_x[0,:])**2)	 
+	
 
 	M = Model()
 	M.fit_model(train_x,train_y)
