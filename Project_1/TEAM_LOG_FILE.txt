@@ -1,0 +1,8 @@
+Sebastian 2020_10_11 10:56am: 
+
+- Noticed that either load_and_transform_data caused a lot of unstability in the score, therofore I uncommented it. Choose first 800 datapoints to fit to. Score of ~0.02 from score function (not docker)
+- RationalQuadratic() + WhiteKernel() seems to perfom best thus far
+- System crashes very frequently with 800 data points or so - considering using google colab, since it's all handles with the server. Crashes are recovered more easily plus there is more RAM available
+- Here is data on the Nystroem approximation: https://scikit-learn.org/stable/modules/generated/sklearn.kernel_approximation.Nystroem.html
+- Perhaps we should consider normailzing the data?
+                                                                                                                                
