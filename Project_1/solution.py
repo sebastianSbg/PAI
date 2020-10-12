@@ -1,10 +1,12 @@
 import numpy as np
 
 import scipy
+import matplotlib.pyplot as plt
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern, WhiteKernel, DotProduct, ExpSineSquared, RationalQuadratic, Sum
 from sklearn.kernel_approximation import Nystroem
+from sklearn.cluster import KMeans
 
 #np.random.bit_generator = np.random._bit_generator
 
@@ -15,8 +17,8 @@ W2 = 20
 W3 = 100
 W4 = 0.04
 
-Npoints = 700
-
+Npoints = 1000
+bias = 5000
 
 def cost_function(true, predicted):
 	"""
@@ -71,6 +73,8 @@ class Model():
 		self.kernel1 = ConstantKernel() + RBF() + WhiteKernel()
 		self.kernel2 = ConstantKernel(constant_value=1.0, constant_value_bounds=(0.0, 10.0)) * RBF(length_scale=0.5, length_scale_bounds=(0.0, 10.0)) + RBF(length_scale=2.0, length_scale_bounds=(0.0, 10.0))
 		self.kernel3 = RationalQuadratic() + WhiteKernel() # Best performes so far
+		self.kernel4 = ConstantKernel() + ConstantKernel()*RBF()
+		self.kernel5 = ConstantKernel() + ConstantKernel()*RBF() + ConstantKernel()*WhiteKernel()
 		self.model = GaussianProcessRegressor(kernel=self.kernel3, n_restarts_optimizer=0, random_state=0)
 
 	def predict(self, test_x):       
@@ -99,7 +103,7 @@ class Model():
 		
 		# Clusterize data into 
 		if(approx == 'Clusters'):
-			n_clusters = 20
+			n_clusters = 800
 			dist_thresehold = 0.07
 			cluster_centers = rng.choice(data_xy,size=n_clusters, axis=0, replace=False)
 			data_transformed = np.zeros((1,3))
@@ -115,9 +119,15 @@ class Model():
 
 						data_transformed = np.append(data_transformed,point_app,axis=0)
 
+		# KMeans
+		if(approx=='KMeans'):
+			kmeans = KMeans(n_clusters=Npoints, random_state=0).fit(data_xy)
+			data_transformed = kmeans.cluster_centers_
+
+
 		# Using entire data set
 		if(approx == 'None'):
-			data_transformed = data_xy
+			data_transformed = data_xy[bias:Npoints+bias,:]
 
 		print("Size of transformed data: " + str(data_transformed.shape))    
 		return data_transformed
@@ -126,9 +136,12 @@ class Model():
 
 		# load and transform data according to different methods
 #       data = self.load_and_tranform_data('Random', train_x, train_y)
-		self.data_x = train_x[0:Npoints,:] #data[:,0:2]
-		self.data_y = train_y[0:Npoints] #data[:,2]
 		
+		# trying KMeans Method
+		data_transformed = self.load_and_tranform_data('None',train_x,train_y)
+		self.data_x = data_transformed[:,0:2]
+		self.data_y = data_transformed[:,2]
+
 		# Tried NYOSTROEM SELECTION by concatenating data_x and data_y and using the transpose as input to Nystroem --> this didn't work well since the approximation is limited by n in an nxm matrix
 		# Hence the output was only 3x3
 # 		# merge data into one matrix for selection in nyostroem selector
@@ -192,6 +205,17 @@ class Model():
 		theta_opt = optimalResult.x
 		return theta_opt
 
+
+
+def plot(x_train, y_train, x_test, predictions):
+	# plotting data
+	ax = plt.axes(projection='3d')
+	ax.scatter3D(x_train[:,0], x_train[:,1], y_train, cmap='Greens');    
+	ax.scatter3D(x_test[:,0], x_test[:,1], predictions, cmap='Reds')
+	ax.set_xlabel('x1')
+	ax.set_ylabel('x2')
+	plt.show()
+
 def main():
 #   HI there
 	train_x_name = "train_x.csv"
@@ -213,6 +237,10 @@ def main():
 	prediction = M.predict(train_x)
 	print(f"Cost on train_x data: {cost_function(train_y, prediction)}")
 
+	prediction_test = M.predict(test_x)
+	plot(M.data_x,M.data_y,test_x,prediction_test)
+
 if __name__ == "__main__":
 	main()
 	print("Completed sucessfully")
+
