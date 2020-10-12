@@ -17,8 +17,8 @@ W2 = 20
 W3 = 100
 W4 = 0.04
 
-Npoints = 1000
-bias = 5000
+Npoints = 500
+bias = 0
 
 def cost_function(true, predicted):
 	"""
@@ -75,7 +75,7 @@ class Model():
 		self.kernel3 = RationalQuadratic() + WhiteKernel() # Best performes so far
 		self.kernel4 = ConstantKernel() + ConstantKernel()*RBF()
 		self.kernel5 = ConstantKernel() + ConstantKernel()*RBF() + ConstantKernel()*WhiteKernel()
-		self.model = GaussianProcessRegressor(kernel=self.kernel3, n_restarts_optimizer=0, random_state=0)
+		self.model = GaussianProcessRegressor(kernel=self.kernel1, n_restarts_optimizer=0, random_state=0)
 
 	def predict(self, test_x):       
 		# predict with model at test point test_x 
@@ -138,7 +138,7 @@ class Model():
 #       data = self.load_and_tranform_data('Random', train_x, train_y)
 		
 		# trying KMeans Method
-		data_transformed = self.load_and_tranform_data('None',train_x,train_y)
+		data_transformed = self.load_and_tranform_data('KMeans',train_x,train_y)
 		self.data_x = data_transformed[:,0:2]
 		self.data_y = data_transformed[:,2]
 
