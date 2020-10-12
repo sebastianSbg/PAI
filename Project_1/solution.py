@@ -17,7 +17,7 @@ W2 = 20
 W3 = 100
 W4 = 0.04
 
-Npoints = 500
+Npoints = 450
 bias = 0
 
 def cost_function(true, predicted):
