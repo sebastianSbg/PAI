@@ -6,6 +6,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from torch import nn
 from torch.nn import functional as F
 from tqdm import trange, tqdm
+from torch.distributions import LogNormal, kl_divergence, Laplace
 
 
 def ece(probs, labels, n_bins=30):
@@ -113,8 +114,8 @@ class BayesianLayer(torch.nn.Module):
         self.use_bias = bias
 
         # TODO: enter your code here
-        self.prior_mu = torch.zeros((input_dim, output_dim)) # ?
-        self.prior_sigma = torch.ones((input_dim, output_dim)) # ?
+        self.prior_mu = torch.ones((input_dim, output_dim)) # ?
+        self.prior_sigma = torch.ones((input_dim, output_dim)) * 3 # ?
         self.weight_mu = nn.Parameter(self.prior_mu) # ?
         self.weight_logsigma = nn.Parameter(torch.log(self.prior_sigma)) # ?
         # TODO: finish code
@@ -175,16 +176,10 @@ class BayesianLayer(torch.nn.Module):
 
         # TODO: enter your code here
 
-        # Assuming that the arguments of the function define the posterior distribution and the current parameters are the prior:
-        logsigma1 = torch.log(self.prior_sigma)
-        logsigma2 = logsigma
-        sigma1 = self.prior_sigma
-        sigma2 = torch.exp(logsigma2)
-        mu1 = self.prior_mu
-        mu2 = mu
+        prior = LogNormal(self.prior_mu, self.prior_sigma)
+        posterior = LogNormal(mu, torch.exp(logsigma))
 
-        kl = (logsigma1-logsigma2) +  torch.div((sigma1**2 +(mu1-mu2)**2),(2*sigma2**2)) - 0.5 
-        kl = torch.sum(kl)
+        kl = kl_divergence(prior, posterior).mean()
         # TODO: finish code
 
         return kl
@@ -218,6 +213,8 @@ class BayesNet(torch.nn.Module):
         # compute the categorical softmax probabilities
         # marginalize the probabilities over the n forward passes
 
+        probs = F.softmax(self.forward(x), dim=1) #copied this from the deepnet class
+
         # TODO: finish code
 
         assert probs.shape == (batch_size, 10)
@@ -230,11 +227,17 @@ class BayesNet(torch.nn.Module):
         '''
         # TODO: enter your code here
         kl_loss = 0
+        i=0
         for layer in self.net.children():
+
             if(isinstance(layer, nn.Sequential)):
                 bayesian_layer = layer[0]
+            else:
+                bayesian_layer = layer
         
             kl_loss += bayesian_layer.kl_divergence()
+            #print('Layer[',i,']:',bayesian_layer.prior_mu[1], '\n', bayesian_layer.prior_sigma[1], '\n', bayesian_layer.weight_mu[1], '\n', torch.exp(bayesian_layer.weight_logsigma[1]))
+            i+=1
 
         return kl_loss
 
@@ -260,7 +263,9 @@ def train_network(model, optimizer, train_loader, num_epochs=100, pbar_update_in
             if type(model) == BayesNet:
                 # BayesNet implies additional KL-loss.
                 # TODO: enter your code here
-                loss -= model.kl_loss()
+                
+                kl_loss = model.kl_loss()
+                loss += kl_loss
 
                 # TODO: finish code
 
