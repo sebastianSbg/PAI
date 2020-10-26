@@ -6,7 +6,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from torch import nn
 from torch.nn import functional as F
 from tqdm import trange, tqdm
-from torch.distributions import LogNormal, kl_divergence, Laplace
+from torch.distributions import LogNormal, kl_divergence
 
 
 def ece(probs, labels, n_bins=30):
@@ -175,6 +175,11 @@ class BayesianLayer(torch.nn.Module):
         '''
 
         # TODO: enter your code here
+        # this is assuming self.prior_mu and self.prior_logsigma give the params of the prior gaussian
+        # and arguments mu and logsigma give the params of the posterior Gaussian
+        # and return value should be the mean of this divergence
+        prior = LogNormal(self.prior_mu, self.prior_sigma)
+        posterior = LogNormal(mu, torch.exp(logsigma))
 
         prior = LogNormal(self.prior_mu, self.prior_sigma)
         posterior = LogNormal(mu, torch.exp(logsigma))
@@ -183,6 +188,7 @@ class BayesianLayer(torch.nn.Module):
         # TODO: finish code
 
         return kl
+
 
 
 class BayesNet(torch.nn.Module):
@@ -212,10 +218,8 @@ class BayesNet(torch.nn.Module):
         # TODO: make n random forward passes
         # compute the categorical softmax probabilities
         # marginalize the probabilities over the n forward passes
-
         probs = F.softmax(self.forward(x), dim=1) #copied this from the deepnet class
-
-        # TODO: finish code
+        # TODO: finish this code, currently doing only 1 forward pass
 
         assert probs.shape == (batch_size, 10)
         return probs
@@ -369,7 +373,7 @@ def evaluate_model(model, model_type, test_loader, batch_size, extended_eval, pr
 
 
 def main(test_loader=None, private_test=False):
-    num_epochs = 100 # You might want to adjust this
+    num_epochs = 1 # You might want to adjust this
     batch_size = 128  # Try playing around with this
     print_interval = 100
     learning_rate = 5e-4  # Try playing around with this
