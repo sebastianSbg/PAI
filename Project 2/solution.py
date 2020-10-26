@@ -113,10 +113,10 @@ class BayesianLayer(torch.nn.Module):
         self.use_bias = bias
 
         # TODO: enter your code here
-        #self.prior_mu = ? torch.zeros(input_dim)
-        #self.prior_sigma = ? torch.zeros(input_dim)
-        #self.weight_mu = nn.? Parameter(torch.zeros(output_dim))
-        #self.weight_logsigma = ? nn.Parameter(torch.zeros(output_dim))
+        self.prior_mu = torch.zeros((input_dim, output_dim)) # ?
+        self.prior_sigma = torch.ones((input_dim, output_dim)) # ?
+        self.weight_mu = nn.Parameter(self.prior_mu) # ?
+        self.weight_logsigma = nn.Parameter(torch.log(self.prior_sigma)) # ?
         # TODO: finish code
 
         if self.use_bias:
@@ -132,16 +132,16 @@ class BayesianLayer(torch.nn.Module):
 
         # Bayesian inference for Gaussian RV
         # Inputs will have mean and variance:
-        output_mean = torch.matmul(torch.transpose(self.weight_mu),inputs)
-        output_sigma = torch.matmul(torch.transpose(inputs),torch.diag(torch.exp(self.weight_logsigma)))
-        output_sigma = torch.matmul(output_sigma, inputs)
+        output_mean = torch.matmul(inputs, self.weight_mu)
+        #output_sigma = torch.matmul(inputs,torch.exp(self.weight_logsigma))
+        #output_sigma = torch.matmul(output_sigma, inputs)
 
         # TODO: finish code
 
         if self.use_bias:
             # TODO: enter your code here
             output_mean = output_mean + self.bias_mu
-            output_sigma = output_sigma
+            #output_sigma = output_sigma
             # TODO: finsih code
             pass
         else:
@@ -149,7 +149,10 @@ class BayesianLayer(torch.nn.Module):
 
         # TODO: enter your code here
 
+        # output_mean = torch.nn.ReLU(output_mean) ??
+
         output = output_mean
+
         return output
 
         # TODO: finish code
@@ -173,15 +176,15 @@ class BayesianLayer(torch.nn.Module):
         # TODO: enter your code here
 
         # Assuming that the arguments of the function define the posterior distribution and the current parameters are the prior:
-        logsigma1 = logsigma
-        logsigma2 = self.weight_logsigma
-        sigma1 = np.exp(logsigma1)
-        sigma2 = np.exp(logsigma2)
-        mu1 = mu
-        mu2 = self.weight_mu
+        logsigma1 = torch.log(self.prior_sigma)
+        logsigma2 = logsigma
+        sigma1 = self.prior_sigma
+        sigma2 = torch.exp(logsigma2)
+        mu1 = self.prior_mu
+        mu2 = mu
 
-        kl = (logsigma1-logsigma2) + (sigma1**2 + (mu1-mu2)**2)/(2*sigma2**2) - 0.5 
-        
+        kl = (logsigma1-logsigma2) +  torch.div((sigma1**2 +(mu1-mu2)**2),(2*sigma2**2)) - 0.5 
+        kl = torch.sum(kl)
         # TODO: finish code
 
         return kl
@@ -215,6 +218,8 @@ class BayesNet(torch.nn.Module):
         # compute the categorical softmax probabilities
         # marginalize the probabilities over the n forward passes
 
+        # TODO: finish code
+
         assert probs.shape == (batch_size, 10)
         return probs
 
@@ -224,6 +229,16 @@ class BayesNet(torch.nn.Module):
         Computes the KL divergence loss for all layers.
         '''
         # TODO: enter your code here
+        kl_loss = 0
+        for layer in self.net.children():
+            if(isinstance(layer, nn.Sequential)):
+                bayesian_layer = layer[0]
+        
+            kl_loss += bayesian_layer.kl_divergence()
+
+        return kl_loss
+
+        # TODO: finish code
 
 
 def train_network(model, optimizer, train_loader, num_epochs=100, pbar_update_interval=100):
@@ -245,9 +260,9 @@ def train_network(model, optimizer, train_loader, num_epochs=100, pbar_update_in
             if type(model) == BayesNet:
                 # BayesNet implies additional KL-loss.
                 # TODO: enter your code here
-                loss += model.kl_loss()
+                loss -= model.kl_loss()
+
                 # TODO: finish code
-                pass
 
             loss.backward()
             optimizer.step()
