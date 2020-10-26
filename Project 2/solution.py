@@ -6,6 +6,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from torch import nn
 from torch.nn import functional as F
 from tqdm import trange, tqdm
+from torch.distributions import LogNormal, kl_divergence
 
 
 def ece(probs, labels, n_bins=30):
@@ -174,20 +175,16 @@ class BayesianLayer(torch.nn.Module):
         '''
 
         # TODO: enter your code here
+        # this is assuming self.prior_mu and self.prior_logsigma give the params of the prior gaussian
+        # and arguments mu and logsigma give the params of the posterior Gaussian
+        # and return value should be the mean of this divergence
+        prior = LogNormal(self.prior_mu, self.prior_sigma)
+        posterior = LogNormal(mu, torch.exp(logsigma))
 
-        # Assuming that the arguments of the function define the posterior distribution and the current parameters are the prior:
-        logsigma1 = torch.log(self.prior_sigma)
-        logsigma2 = logsigma
-        sigma1 = self.prior_sigma
-        sigma2 = torch.exp(logsigma2)
-        mu1 = self.prior_mu
-        mu2 = mu
-
-        kl = (logsigma1-logsigma2) +  torch.div((sigma1**2 +(mu1-mu2)**2),(2*sigma2**2)) - 0.5 
-        kl = torch.sum(kl)
-        # TODO: finish code
+        kl = kl_divergence(prior, posterior).mean()
 
         return kl
+
 
 
 class BayesNet(torch.nn.Module):
