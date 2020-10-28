@@ -6,7 +6,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from torch import nn
 from torch.nn import functional as F
 from tqdm import trange, tqdm
-from torch.distributions import LogNormal, kl_divergence
+from torch.distributions import LogNormal, kl_divergence, Normal
 
 
 def ece(probs, labels, n_bins=30):
@@ -114,10 +114,10 @@ class BayesianLayer(torch.nn.Module):
         self.use_bias = bias
 
         # TODO: enter your code here
-        self.prior_mu = torch.ones((input_dim, output_dim)) # ?
-        self.prior_sigma = torch.ones((input_dim, output_dim)) * 3 # ?
-        self.weight_mu = nn.Parameter(self.prior_mu) # ?
-        self.weight_logsigma = nn.Parameter(torch.log(self.prior_sigma)) # ?
+        self.prior_mu = torch.rand_like(torch.ones((input_dim, output_dim))) # ?
+        self.prior_sigma = torch.log(1+torch.exp(torch.zeros_like(self.prior_mu)-3)) # ?
+        self.weight_mu = nn.Parameter(torch.randn_like(self.prior_mu)) # ?
+        self.weight_logsigma = nn.Parameter(torch.zeros_like(self.prior_sigma)-3)# ?
         # TODO: finish code
 
         if self.use_bias:
@@ -131,9 +131,20 @@ class BayesianLayer(torch.nn.Module):
     def forward(self, inputs):
         # TODO: enter your code here
 
+        # Sample weights
+        weights = torch.add(torch.mul(torch.randn_like(self.weight_mu),torch.exp(self.weight_logsigma)), self.weight_mu)
+        #print(self.weight_mu[0:14,0:14])
+        #print(torch.exp(self.weight_logsigma[0:14,0:14]))
+        #print(weights[0:14,0:14])
+
+        if(self.use_bias):
+            # sample bias
+            bias = torch.add(torch.mul(torch.randn_like(self.bias_mu),torch.exp(self.bias_logsigma)), self.bias_mu)
+        
+
         # Bayesian inference for Gaussian RV
         # Inputs will have mean and variance:
-        output_mean = torch.matmul(inputs, self.weight_mu)
+        output_mean = torch.matmul(inputs, weights)
         #output_sigma = torch.matmul(inputs,torch.exp(self.weight_logsigma))
         #output_sigma = torch.matmul(output_sigma, inputs)
 
@@ -141,7 +152,7 @@ class BayesianLayer(torch.nn.Module):
 
         if self.use_bias:
             # TODO: enter your code here
-            output_mean = output_mean + self.bias_mu
+            output_mean = output_mean + bias
             #output_sigma = output_sigma
             # TODO: finsih code
             pass
@@ -178,13 +189,11 @@ class BayesianLayer(torch.nn.Module):
         # this is assuming self.prior_mu and self.prior_logsigma give the params of the prior gaussian
         # and arguments mu and logsigma give the params of the posterior Gaussian
         # and return value should be the mean of this divergence
+        
         prior = LogNormal(self.prior_mu, self.prior_sigma)
         posterior = LogNormal(mu, torch.exp(logsigma))
 
-        prior = LogNormal(self.prior_mu, self.prior_sigma)
-        posterior = LogNormal(mu, torch.exp(logsigma))
-
-        kl = kl_divergence(prior, posterior).mean()
+        kl = kl_divergence(posterior, prior).mean() #Posterior first (not commutative)
         # TODO: finish code
 
         return kl
@@ -218,7 +227,11 @@ class BayesNet(torch.nn.Module):
         # TODO: make n random forward passes
         # compute the categorical softmax probabilities
         # marginalize the probabilities over the n forward passes
-        probs = F.softmax(self.forward(x), dim=1) #copied this from the deepnet class
+        probs = 0
+        for step in range(num_forward_passes):
+            probs += F.softmax(self.net(x), dim=1) #copied this from the deepnet class
+
+        probs = probs/num_forward_passes
         # TODO: finish this code, currently doing only 1 forward pass
 
         assert probs.shape == (batch_size, 10)
@@ -240,10 +253,9 @@ class BayesNet(torch.nn.Module):
                 bayesian_layer = layer
         
             kl_loss += bayesian_layer.kl_divergence()
-            #print('Layer[',i,']:',bayesian_layer.prior_mu[1], '\n', bayesian_layer.prior_sigma[1], '\n', bayesian_layer.weight_mu[1], '\n', torch.exp(bayesian_layer.weight_logsigma[1]))
             i+=1
 
-        return kl_loss
+        return kl_loss/i
 
         # TODO: finish code
 
@@ -373,7 +385,7 @@ def evaluate_model(model, model_type, test_loader, batch_size, extended_eval, pr
 
 
 def main(test_loader=None, private_test=False):
-    num_epochs = 1 # You might want to adjust this
+    num_epochs = 100 # You might want to adjust this
     batch_size = 128  # Try playing around with this
     print_interval = 100
     learning_rate = 5e-4  # Try playing around with this
