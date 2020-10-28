@@ -112,12 +112,12 @@ class BayesianLayer(torch.nn.Module):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.use_bias = bias
-
+        
         # TODO: enter your code here
-        self.prior_mu = torch.rand_like(torch.ones((input_dim, output_dim))) # ?
-        self.prior_sigma = torch.log(1+torch.exp(torch.zeros_like(self.prior_mu)-3)) # ?
-        self.weight_mu = nn.Parameter(torch.randn_like(self.prior_mu)) # ?
-        self.weight_logsigma = nn.Parameter(torch.zeros_like(self.prior_sigma)-3)# ?
+        self.prior_mu = torch.zeros((input_dim, output_dim)) # ?
+        self.prior_sigma = torch.ones_like(self.prior_mu)*4 # ?
+        self.weight_mu = nn.Parameter(torch.randn_like(self.prior_mu)) 
+        self.weight_logsigma = nn.Parameter(torch.zeros_like(self.prior_sigma)-3)
         # TODO: finish code
 
         if self.use_bias:
@@ -133,10 +133,15 @@ class BayesianLayer(torch.nn.Module):
 
         # Sample weights
         weights = torch.add(torch.mul(torch.randn_like(self.weight_mu),torch.exp(self.weight_logsigma)), self.weight_mu)
-        #print(self.weight_mu[0:14,0:14])
-        #print(torch.exp(self.weight_logsigma[0:14,0:14]))
-        #print(weights[0:14,0:14])
-
+        """
+        print(self.weight_mu[0:4,0:4])
+        print(torch.exp(self.weight_logsigma[0:4,0:4]))
+        print(weights[0:4,0:4])
+        """
+        """
+        print(self.prior_mu[0:2,0:2])
+        print(self.prior_sigma[0:2,0:2])
+        """
         if(self.use_bias):
             # sample bias
             bias = torch.add(torch.mul(torch.randn_like(self.bias_mu),torch.exp(self.bias_logsigma)), self.bias_mu)
@@ -194,6 +199,16 @@ class BayesianLayer(torch.nn.Module):
         posterior = LogNormal(mu, torch.exp(logsigma))
 
         kl = kl_divergence(posterior, prior).mean() #Posterior first (not commutative)
+
+        logsigma_post = logsigma
+        logsigma_prior = self.prior_sigma
+        sigma_post_2 = torch.exp(2*logsigma_post)
+        sigma_prior_2 = torch.exp(2*logsigma_prior)
+        mu_prior = self.prior_mu
+        mu_post = mu
+
+        kl = torch.sum( logsigma_prior-logsigma_post + torch.div((sigma_post_2 + torch.square(mu_post-mu_prior)) , (2*sigma_prior_2)) - torch.ones_like(mu_prior)/2)/torch.numel(mu_prior)
+
         # TODO: finish code
 
         return kl
@@ -275,13 +290,18 @@ def train_network(model, optimizer, train_loader, num_epochs=100, pbar_update_in
         for k, (batch_x, batch_y) in enumerate(train_loader):
             model.zero_grad()
             y_pred = model(batch_x)
-            loss = criterion(y_pred, batch_y)
+            loss_entropy = criterion(y_pred, batch_y)
+            loss = loss_entropy
+            kl_loss = 0
             if type(model) == BayesNet:
                 # BayesNet implies additional KL-loss.
                 # TODO: enter your code here
-                
+                loss /= torch.numel(batch_y)
                 kl_loss = model.kl_loss()
-                loss += kl_loss
+                #print(y_pred.size())
+                #print("\nKL Loss: ",kl_loss)
+                #print("Cross Entropy: ",loss)
+                loss = kl_loss + loss_entropy
 
                 # TODO: finish code
 
@@ -290,7 +310,7 @@ def train_network(model, optimizer, train_loader, num_epochs=100, pbar_update_in
 
             if k % pbar_update_interval == 0:
                 acc = (model(batch_x).argmax(axis=1) == batch_y).sum().float()/(len(batch_y))
-                pbar.set_postfix(loss=loss.item(), acc=acc.item())
+                pbar.set_postfix(loss=loss.item(), acc=acc.item(),  ent=loss_entropy.item(), kl=kl_loss.item())
 
 
 def evaluate_model(model, model_type, test_loader, batch_size, extended_eval, private_test):
@@ -385,7 +405,7 @@ def evaluate_model(model, model_type, test_loader, batch_size, extended_eval, pr
 
 
 def main(test_loader=None, private_test=False):
-    num_epochs = 100 # You might want to adjust this
+    num_epochs = 50 # You might want to adjust this
     batch_size = 128  # Try playing around with this
     print_interval = 100
     learning_rate = 5e-4  # Try playing around with this
