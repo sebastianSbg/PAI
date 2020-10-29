@@ -133,6 +133,7 @@ class BayesianLayer(torch.nn.Module):
 
         # Sample weights
         weights = torch.add(torch.mul(torch.randn_like(self.weight_mu),torch.exp(self.weight_logsigma)), self.weight_mu)
+        
         """
         print(self.weight_mu[0:4,0:4])
         print(torch.exp(self.weight_logsigma[0:4,0:4]))
@@ -150,8 +151,6 @@ class BayesianLayer(torch.nn.Module):
         # Bayesian inference for Gaussian RV
         # Inputs will have mean and variance:
         output_mean = torch.matmul(inputs, weights)
-        #output_sigma = torch.matmul(inputs,torch.exp(self.weight_logsigma))
-        #output_sigma = torch.matmul(output_sigma, inputs)
 
         # TODO: finish code
 
@@ -298,9 +297,6 @@ def train_network(model, optimizer, train_loader, num_epochs=100, pbar_update_in
                 # TODO: enter your code here
                 loss /= torch.numel(batch_y)
                 kl_loss = model.kl_loss()
-                #print(y_pred.size())
-                #print("\nKL Loss: ",kl_loss)
-                #print("Cross Entropy: ",loss)
                 loss = kl_loss + loss_entropy
 
                 # TODO: finish code
@@ -405,10 +401,10 @@ def evaluate_model(model, model_type, test_loader, batch_size, extended_eval, pr
 
 
 def main(test_loader=None, private_test=False):
-    num_epochs = 50 # You might want to adjust this
+    num_epochs = 200 # You might want to adjust this
     batch_size = 128  # Try playing around with this
     print_interval = 100
-    learning_rate = 5e-4  # Try playing around with this
+    learning_rate = 1e-4  # Try playing around with this
     model_type = "bayesnet"  # Try changing this to "densenet" as a comparison
     extended_evaluation = False  # Set this to True for additional model evaluation
 

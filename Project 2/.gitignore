@@ -34,5 +34,4 @@ pytransform
 checker_client.pyt
 runner.sh
 Dockerfile
-results_check.byte
 checker_client.pytransform
