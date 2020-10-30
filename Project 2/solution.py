@@ -113,12 +113,12 @@ class BayesianLayer(torch.nn.Module):
         self.output_dim = output_dim
         self.use_bias = bias
         
-        # TODO: enter your code here
-        self.prior_mu = torch.zeros((input_dim, output_dim)) # ?
-        self.prior_sigma = torch.ones_like(self.prior_mu)*4 # ?
+        # Priors over weights (hyperparameters)
+        # TODO: optimize hyperparameters
+        self.prior_mu = torch.zeros((input_dim, output_dim))
+        self.prior_sigma = torch.ones_like(self.prior_mu)*4
         self.weight_mu = nn.Parameter(torch.randn_like(self.prior_mu)) 
         self.weight_logsigma = nn.Parameter(torch.zeros_like(self.prior_sigma)-3)
-        # TODO: finish code
 
         if self.use_bias:
             self.bias_mu = nn.Parameter(torch.zeros(output_dim))
@@ -129,8 +129,6 @@ class BayesianLayer(torch.nn.Module):
 
 
     def forward(self, inputs):
-        # TODO: enter your code here
-
         # Sample weights
         weights = torch.add(torch.mul(torch.randn_like(self.weight_mu),torch.exp(self.weight_logsigma)), self.weight_mu)
         
@@ -152,26 +150,18 @@ class BayesianLayer(torch.nn.Module):
         # Inputs will have mean and variance:
         output_mean = torch.matmul(inputs, weights)
 
-        # TODO: finish code
-
+        # Add sampled bias to weights
         if self.use_bias:
             # TODO: enter your code here
             output_mean = output_mean + bias
-            #output_sigma = output_sigma
-            # TODO: finsih code
             pass
         else:
             bias = None
 
-        # TODO: enter your code here
-
-        # output_mean = torch.nn.ReLU(output_mean) ??
-
+        # TODO: should an ReLU be used here?
         output = output_mean
 
         return output
-
-        # TODO: finish code
 
     def kl_divergence(self):
         '''
@@ -189,30 +179,16 @@ class BayesianLayer(torch.nn.Module):
         and the Gaussian prior.
         '''
 
-        # TODO: enter your code here
-        # this is assuming self.prior_mu and self.prior_logsigma give the params of the prior gaussian
-        # and arguments mu and logsigma give the params of the posterior Gaussian
-        # and return value should be the mean of this divergence
-        
-        prior = LogNormal(self.prior_mu, self.prior_sigma)
-        posterior = LogNormal(mu, torch.exp(logsigma))
+        sigma_prior = torch.exp(self.prior_sigma) #Let's treat prior_sigma as log(), in accordance to self.weight_logsigma
+        sigma_posterior = torch.exp(logsigma)
 
+        prior = LogNormal(self.prior_mu,sigma_prior)
+        posterior = LogNormal(mu, sigma_posterior)
+
+        # use kl_divergence function for flexibility if we want to change prior distribution
         kl = kl_divergence(posterior, prior).mean() #Posterior first (not commutative)
 
-        logsigma_post = logsigma
-        logsigma_prior = self.prior_sigma
-        sigma_post_2 = torch.exp(2*logsigma_post)
-        sigma_prior_2 = torch.exp(2*logsigma_prior)
-        mu_prior = self.prior_mu
-        mu_post = mu
-
-        kl = torch.sum( logsigma_prior-logsigma_post + torch.div((sigma_post_2 + torch.square(mu_post-mu_prior)) , (2*sigma_prior_2)) - torch.ones_like(mu_prior)/2)/torch.numel(mu_prior)
-
-        # TODO: finish code
-
         return kl
-
-
 
 class BayesNet(torch.nn.Module):
     '''
@@ -238,15 +214,13 @@ class BayesNet(torch.nn.Module):
         assert x.shape[1] == 28**2
         batch_size = x.shape[0]
 
-        # TODO: make n random forward passes
         # compute the categorical softmax probabilities
         # marginalize the probabilities over the n forward passes
         probs = 0
         for step in range(num_forward_passes):
-            probs += F.softmax(self.net(x), dim=1) #copied this from the deepnet class
+            probs += F.softmax(self.net(x), dim=1)
 
         probs = probs/num_forward_passes
-        # TODO: finish this code, currently doing only 1 forward pass
 
         assert probs.shape == (batch_size, 10)
         return probs
@@ -256,7 +230,7 @@ class BayesNet(torch.nn.Module):
         '''
         Computes the KL divergence loss for all layers.
         '''
-        # TODO: enter your code here
+
         kl_loss = 0
         i=0
         for layer in self.net.children():
@@ -270,8 +244,7 @@ class BayesNet(torch.nn.Module):
             i+=1
 
         return kl_loss/i
-
-        # TODO: finish code
+        # TODO: perhaps move scaling to here and remove it from total loss to be more in accordance with paper?
 
 
 def train_network(model, optimizer, train_loader, num_epochs=100, pbar_update_interval=100):
@@ -294,12 +267,10 @@ def train_network(model, optimizer, train_loader, num_epochs=100, pbar_update_in
             kl_loss = 0
             if type(model) == BayesNet:
                 # BayesNet implies additional KL-loss.
-                # TODO: enter your code here
+                # TODO: perhaps remove scaling here and move it to KL loss to be more in accordance with paper?
                 loss /= torch.numel(batch_y)
                 kl_loss = model.kl_loss()
                 loss = kl_loss + loss_entropy
-
-                # TODO: finish code
 
             loss.backward()
             optimizer.step()
