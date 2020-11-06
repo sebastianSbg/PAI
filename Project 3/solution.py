@@ -12,7 +12,15 @@ class BO_algo():
         """Initializes the algorithm with a parameter configuration. """
 
         # TODO: enter your code here
-        pass
+
+        # Start with only one hyperparameter theta
+        self.x = np.mean(domain)
+
+        # Initialize important elements
+        self.x_array = self.x
+        self.data_points = np.array([[self.x], [f(self.x)], [v(self.x)]])
+
+        # TODO: finish code
 
 
     def next_recommendation(self):
@@ -27,7 +35,9 @@ class BO_algo():
 
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
-        raise NotImplementedError
+        x_recommended = self.optimize_acquisition_function()
+        return x_recommended
+        # TODO: finish code
 
 
     def optimize_acquisition_function(self):
@@ -74,7 +84,9 @@ class BO_algo():
         """
 
         # TODO: enter your code here
-        raise NotImplementedError
+        af_value = f(x)
+        return af_value
+        # TODO: finish code
 
 
     def add_data_point(self, x, f, v):
@@ -92,7 +104,13 @@ class BO_algo():
         """
 
         # TODO: enter your code here
-        raise NotImplementedError
+
+        # Add data point to data array
+        data_array = np.append(x,np.atleast_2d(f),axis=0)
+        data_array = np.append(data_array,np.atleast_2d(v),axis=0)
+        self.data_points = np.append(self.data_points, data_array, axis=1)
+
+        # TODO: finish code
 
     def get_solution(self):
         """
@@ -105,8 +123,25 @@ class BO_algo():
         """
 
         # TODO: enter your code here
-        raise NotImplementedError
+        
+        # minimum speed recquired
+        v_min = 1.2
+        mask = (self.data_points[2, :] > v_min)
+        opt_idx = np.argmax(self.data_points[1, :][mask])
 
+        return self.data_points[0, opt_idx]
+
+        # TODO: finish code
+
+    def f(self, x):
+        # TODO: enter code here
+        return NotImplementedError
+        # TODO: finish code 
+    
+    def v(self, x):
+        # TODO: enter code here
+        return NotImplementedError
+        # TODO: finish code 
 
 """ Toy problem to check code works as expected """
 
