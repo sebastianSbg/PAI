@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 
+from sklearn.gaussian_process.kernels import Matern, ConstantKernel
+from sklearn.gaussian_process import GaussianProcessRegressor as GPR
+
 domain = np.array([[0, 5]])
 
 
@@ -12,13 +15,23 @@ class BO_algo():
         """Initializes the algorithm with a parameter configuration. """
 
         # TODO: enter your code here
+        
+        # Priors for f and v
+        f_variance = 2.5
+        kernel_f = Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5) * ConstantKernel(f_variance)
+        self.f = GPR(kernel=kernel_f, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
+
+        v_variance = np.sqrt(2)
+        v_mean = 1.5
+        kernel_v = ConstantKernel(v_mean) + Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5) * ConstantKernel(v_variance)
+        self.v = GPR(kernel=kernel_v, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         # Start with only one hyperparameter theta
-        self.x = np.mean(domain)
+        #self.x = np.mean(domain)
 
         # Initialize important elements
-        self.x_array = self.x
-        self.data_points = np.array([[self.x], [f(self.x)], [v(self.x)]])
+        #self.x_array = self.x
+        #self.data_points = np.array([[self.x], [self.f(self.x)], [self.v(self.x)]])
 
         # TODO: finish code
 
@@ -84,7 +97,7 @@ class BO_algo():
         """
 
         # TODO: enter your code here
-        af_value = f(x)
+        af_value = self.f(x)
         return af_value
         # TODO: finish code
 
@@ -127,21 +140,12 @@ class BO_algo():
         # minimum speed recquired
         v_min = 1.2
         mask = (self.data_points[2, :] > v_min)
+        print(mask)
         opt_idx = np.argmax(self.data_points[1, :][mask])
 
         return self.data_points[0, opt_idx]
 
         # TODO: finish code
-
-    def f(self, x):
-        # TODO: enter code here
-        return NotImplementedError
-        # TODO: finish code 
-    
-    def v(self, x):
-        # TODO: enter code here
-        return NotImplementedError
-        # TODO: finish code 
 
 """ Toy problem to check code works as expected """
 
@@ -177,8 +181,8 @@ def main():
             f"shape (1, {domain.shape[0]})"
 
         # Obtain objective and constraint observation
-        obj_val = f(x)
-        cost_val = v(x)
+        obj_val = agent.f(x)
+        cost_val = agent.v(x)
         agent.add_data_point(x, obj_val, cost_val)
 
     # Validate solution
@@ -194,10 +198,10 @@ def main():
     if v(solution) < 1.2:
         regret = 1
     else:
-        regret = (0 - f(solution))
+        regret = (0 - agent.f(solution))
 
     print(f'Optimal value: 0\nProposed solution {solution}\nSolution value '
-          f'{f(solution)}\nRegret{regret}')
+          f'{agent.f(solution)}\nRegret{regret}')
 
 
 if __name__ == "__main__":
