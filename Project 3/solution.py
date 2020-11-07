@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 
-from sklearn.gaussian_process.kernels import Matern, ConstantKernel
+from sklearn.gaussian_process.kernels import Matern, ConstantKernel, Sum, Product
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 
 domain = np.array([[0, 5]])
@@ -15,19 +15,24 @@ class BO_algo():
         """Initializes the algorithm with a parameter configuration. """
 
         # TODO: enter your code here
+
+        self.v_min = 1.2
+        noise_obs_f = 0.15
+        noise_obs_v = 0.0001
         
         # Priors for f and v
-        f_variance = 2.5
-        kernel_f = Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5) * ConstantKernel(f_variance)
-        self.f = GPR(kernel=kernel_f, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
+        f_variance = np.sqrt(0.5)
+        self.kernel_f = Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1e5], nu=2.5), ConstantKernel(f_variance))
+        self.f = GPR(kernel=self.kernel_f, alpha=noise_obs_f**2, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
-        v_variance = np.sqrt(2)
+        v_variance = np.sqrt(np.sqrt(2))
         v_mean = 1.5
-        kernel_v = ConstantKernel(v_mean) + Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5) * ConstantKernel(v_variance)
-        self.v = GPR(kernel=kernel_v, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
+        self.kernel_v = Sum(ConstantKernel(v_mean, constant_value_bounds="fixed"), Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1e5], nu=2.5), ConstantKernel(v_variance)))
+        self.v = GPR(kernel=self.kernel_v, alpha=noise_obs_v**2, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         # Prealocate data_array
-        self.data_points = np.empty([1,3])
+        self.data_points = np.zeros([1,3])
+        self.data_points_aux = np.zeros([1,3])
 
         # TODO: finish code
 
@@ -64,6 +69,7 @@ class BO_algo():
 
         f_values = []
         x_values = []
+        x0_values = []
 
         # Restarts the optimization 20 times and pick best solution
         for _ in range(20):
@@ -73,8 +79,23 @@ class BO_algo():
                                    approx_grad=True)
             x_values.append(np.clip(result[0], *domain[0]))
             f_values.append(-result[1])
+            x0_values.append(x0)
 
         ind = np.argmax(f_values)
+        '''
+        print(x_values)
+        print()
+        print(f_values)
+        print()
+        print(x0_values)
+        print(objective(x_values[14]))
+        print()
+        
+        print(x0_values)
+        print(self.f.predict(x0_values))
+        print(self.v.predict(x0_values))
+        '''
+
         return np.atleast_2d(x_values[ind])
 
     def acquisition_function(self, x):
@@ -98,14 +119,22 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 1
+        k = 10
 
-        # v takes velocity into account
-        tau = 0.2
+        # Importance of good accuracy
+        alpha = 1
+        tau = 500
+        beta = 100
 
         # Trying LCB acquisition function first
-        af_value = f_x[0] + k*f_x[1] + tau*(v_x[0] + v_x[1])
+        af_value = f_x[0] + k*f_x[1] - 1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+        #print(af_value)
         af_value = np.reshape(af_value,[1])
+
+        #print(f_x)
+        #print(v_x)
+        #print(af_value)
+
         return af_value
 
         # TODO: finish code
@@ -130,10 +159,24 @@ class BO_algo():
         # Add data point to data array
         data_array = np.append(x,np.atleast_2d(f),axis=1)
         data_array = np.append(data_array,np.atleast_2d(v),axis=1)
-        self.data_points = np.append(self.data_points, data_array, axis=0)
+        self.data_points = np.vstack((self.data_points, data_array))
 
         self.f.fit(np.atleast_2d(data_array[:,0]), np.atleast_2d(data_array[:,1]))
         self.v.fit(np.atleast_2d(data_array[:,0]), np.atleast_2d(data_array[:,2]))
+
+        '''
+        print(self.f.kernel_.theta, self.v.kernel_.theta)
+        print(self.f.kernel.theta, self.v.kernel.theta)
+        print()
+        '''
+
+        data_array = np.append(x,np.atleast_2d(self.f.predict(x)),axis=1)
+        data_array = np.append(data_array,np.atleast_2d(self.v.predict(x)),axis=1)
+        self.data_points_aux = np.vstack((self.data_points_aux, data_array))
+
+        #print(self.f.predict(np.atleast_2d(2.7), return_std=True))
+        #print(f_aux(2.7))
+        
 
         # TODO: finish code
 
@@ -150,11 +193,22 @@ class BO_algo():
         # TODO: enter your code here
         
         # minimum speed recquired
-        v_min = 1.2
-        mask = (self.data_points[:, 2] > v_min)
-        opt_idx = np.argmax(self.data_points[:, 1][mask])
+        mask = (self.data_points[:, 2] > self.v_min)
+        suitable_points = self.data_points[mask]
+        try:
+            opt_idx = np.argmax(suitable_points[:,1])
+        except:
+            opt_idx = np.argmax(self.data_points[:,1])
+            suitable_points = self.data_points
 
-        return self.data_points[0, opt_idx]
+
+        print("Real Points:\n", self.data_points)
+        print("\nEstimated Points:\n", self.data_points_aux)
+        print("Selected Point:")
+        print(suitable_points[opt_idx])
+        print(self.acquisition_function(suitable_points[opt_idx,0]), self.f.predict(np.atleast_2d(suitable_points[opt_idx,0]), return_std=True))
+
+        return suitable_points[opt_idx, 0]
 
         # TODO: finish code
 
@@ -165,16 +219,19 @@ def check_in_domain(x):
     x = np.atleast_2d(x)
     return np.all(x >= domain[None, :, 0]) and np.all(x <= domain[None, :, 1])
 
+f_variance_hidden = np.sqrt(0.5)
+kernel_f_hidden = Product(Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5), ConstantKernel(f_variance_hidden))
 
-def f(x):
+def f_aux(x):
     """Dummy objective"""
-    mid_point = domain[:, 0] + 0.5 * (domain[:, 1] - domain[:, 0])
-    return - np.linalg.norm(x - mid_point, 2)  # -(x - 2.5)^2
+    return kernel_f_hidden(np.atleast_2d(x)) + np.random.normal(loc=0.0, scale=0.15)
 
-
-def v(x):
+v_variance_hidden = np.sqrt(np.sqrt(2))
+v_mean = 1.5
+kernel_v_hidden = Sum(ConstantKernel(v_mean,constant_value_bounds="fixed"), Product(Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5),ConstantKernel(v_variance_hidden)))
+def v_aux(x):
     """Dummy speed"""
-    return 2.0
+    return kernel_v_hidden(np.atleast_2d(x)) + np.random.normal(loc=0.0, scale=0.0001)
 
 
 def main():
@@ -192,8 +249,8 @@ def main():
             f"shape (1, {domain.shape[0]})"
 
         # Obtain objective and constraint observation
-        obj_val = f(x)
-        cost_val = v(x)
+        obj_val = f_aux(x)
+        cost_val = v_aux(x)
         agent.add_data_point(x, obj_val, cost_val)
 
     # Validate solution
@@ -206,13 +263,13 @@ def main():
         f'domain, {solution} returned instead'
 
     # Compute regret
-    if v(solution) < 1.2:
+    if v_aux(solution) < 1.2:
         regret = 1
     else:
-        regret = (0 - f(solution))
+        regret = (0 - f_aux(solution))
 
     print(f'Optimal value: 0\nProposed solution {solution}\nSolution value '
-          f'{f(solution)}\nRegret{regret}')
+          f'{f_aux(solution)}\nRegret{regret}')
 
 
 if __name__ == "__main__":
