@@ -26,12 +26,8 @@ class BO_algo():
         kernel_v = ConstantKernel(v_mean) + Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5) * ConstantKernel(v_variance)
         self.v = GPR(kernel=kernel_v, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
-        # Start with only one hyperparameter theta
-        #self.x = np.mean(domain)
-
-        # Initialize important elements
-        #self.x_array = self.x
-        #self.data_points = np.array([[self.x], [self.f(self.x)], [self.v(self.x)]])
+        # Prealocate data_array
+        self.data_points = np.empty([1,3])
 
         # TODO: finish code
 
@@ -97,8 +93,21 @@ class BO_algo():
         """
 
         # TODO: enter your code here
-        af_value = self.f(x)
+
+        f_x = self.f.predict(np.atleast_2d(x), return_std=True)
+        v_x = self.v.predict(np.atleast_2d(x), return_std=True)
+
+        # k as Exploration-Exploitation trade-off
+        k = 1
+
+        # v takes velocity into account
+        tau = 0.2
+
+        # Trying LCB acquisition function first
+        af_value = f_x[0] + k*f_x[1] + tau*(v_x[0] + v_x[1])
+        af_value = np.reshape(af_value,[1])
         return af_value
+
         # TODO: finish code
 
 
@@ -119,9 +128,12 @@ class BO_algo():
         # TODO: enter your code here
 
         # Add data point to data array
-        data_array = np.append(x,np.atleast_2d(f),axis=0)
-        data_array = np.append(data_array,np.atleast_2d(v),axis=0)
-        self.data_points = np.append(self.data_points, data_array, axis=1)
+        data_array = np.append(x,np.atleast_2d(f),axis=1)
+        data_array = np.append(data_array,np.atleast_2d(v),axis=1)
+        self.data_points = np.append(self.data_points, data_array, axis=0)
+
+        self.f.fit(np.atleast_2d(data_array[:,0]), np.atleast_2d(data_array[:,1]))
+        self.v.fit(np.atleast_2d(data_array[:,0]), np.atleast_2d(data_array[:,2]))
 
         # TODO: finish code
 
@@ -139,9 +151,8 @@ class BO_algo():
         
         # minimum speed recquired
         v_min = 1.2
-        mask = (self.data_points[2, :] > v_min)
-        print(mask)
-        opt_idx = np.argmax(self.data_points[1, :][mask])
+        mask = (self.data_points[:, 2] > v_min)
+        opt_idx = np.argmax(self.data_points[:, 1][mask])
 
         return self.data_points[0, opt_idx]
 
@@ -181,8 +192,8 @@ def main():
             f"shape (1, {domain.shape[0]})"
 
         # Obtain objective and constraint observation
-        obj_val = agent.f(x)
-        cost_val = agent.v(x)
+        obj_val = f(x)
+        cost_val = v(x)
         agent.add_data_point(x, obj_val, cost_val)
 
     # Validate solution
@@ -198,10 +209,10 @@ def main():
     if v(solution) < 1.2:
         regret = 1
     else:
-        regret = (0 - agent.f(solution))
+        regret = (0 - f(solution))
 
     print(f'Optimal value: 0\nProposed solution {solution}\nSolution value '
-          f'{agent.f(solution)}\nRegret{regret}')
+          f'{f(solution)}\nRegret{regret}')
 
 
 if __name__ == "__main__":
