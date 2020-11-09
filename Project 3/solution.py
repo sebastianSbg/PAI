@@ -3,7 +3,7 @@ from scipy.optimize import fmin_l_bfgs_b
 
 from sklearn.gaussian_process.kernels import Matern, ConstantKernel, Sum, Product, WhiteKernel, RBF
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
-
+from sklearn.cluster import KMeans
 import time
 
 domain = np.array([[0, 5]])
@@ -20,7 +20,7 @@ class BO_algo():
         #self.File_object = open(r"/Users/adrialopezescoriza/Documents/UNI/GRAU/4A-ETH/PAI/PROJECTS/PAI/Project 3/results.txt","w+")
 
         self.v_min = 1.2
-        noise_obs_f = 0.15**2
+        noise_obs_f = 0.15
         noise_obs_v = 0.0001**2
         
         # Priors for f and v
@@ -112,17 +112,21 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 1
+        k = 4
 
         # Importance of good accuracy
-        tau = 4
-        beta = 10
+        tau = -8
+        beta = 20
+        alpha = 1
 
         # Trying LCB acquisition function first
         #af_value = f_x[0] + k*f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
         #print(af_value)
 
-        af_value = f_x[0] + k*f_x[1] + v_x[0]
+        #af_value = alpha*f_x[0] + f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+        af_value = alpha*f_x[0] + k*f_x[1] #- tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+        if(v_x[0] < self.v_min):
+            af_value = -10
 
         af_value = np.reshape(af_value,[1])
 
@@ -162,6 +166,15 @@ class BO_algo():
         data_array = np.append(data_array,np.atleast_2d(self.v.predict(x,return_std=True)[1]),axis=1)
         self.data_points_aux = np.vstack((self.data_points_aux, data_array))
 
+        '''
+        Npoints = 10
+        if(np.shape(self.data_points)[0] > Npoints):
+            data_transformed = KMeans(n_clusters=Npoints, random_state=0).fit(self.data_points[:,0:2]).cluster_centers_
+        else:
+            data_transformed = self.data_points
+        self.f.fit(np.atleast_2d(data_transformed[:,0]).T, np.atleast_2d(data_transformed[:,1]).T)
+        '''
+
         self.f.fit(np.atleast_2d(self.data_points[:,0]).T, np.atleast_2d(self.data_points[:,1]).T)
         self.v.fit(np.atleast_2d(self.data_points[:,0]).T, np.atleast_2d(self.data_points[:,2]).T)
 
@@ -183,6 +196,7 @@ class BO_algo():
         mask = (self.data_points[:, 2] > self.v_min)
         suitable_points = self.data_points[mask]
         try:
+            #h = hello
             opt_idx = np.argmax(suitable_points[:,1])
         except:
             opt_idx = np.argmax(self.data_points[:,1])
@@ -191,7 +205,7 @@ class BO_algo():
 
         # Comments to check out how everything is going
         print("Real Points:\n", self.data_points)
-        print("\nEstimated Points:\n", self.data_points_aux[:,0:3])
+        print("\nEstimated Points:\n", self.data_points_aux[:,:])
         print("Selected Point:")
         print(suitable_points[opt_idx])
         print(self.acquisition_function(suitable_points[opt_idx,0]), self.f.predict(np.atleast_2d(suitable_points[opt_idx,0]), return_std=True))
@@ -201,7 +215,7 @@ class BO_algo():
         
         #self.File_object.write("Real Points:\n" + str(self.data_points) + "\nEstimated Points:\n" +  str(self.data_points_aux[:,:]) + "\nSelected Point:" + str(suitable_points[opt_idx]))
         #File_object.close()
-
+        #time.sleep(5000)
         return suitable_points[opt_idx, 0]
 
         # TODO: finish code
