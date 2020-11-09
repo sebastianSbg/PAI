@@ -20,19 +20,20 @@ class BO_algo():
         #self.File_object = open(r"/Users/adrialopezescoriza/Documents/UNI/GRAU/4A-ETH/PAI/PROJECTS/PAI/Project 3/results.txt","w+")
 
         self.v_min = 1.2
-        noise_obs_f = np.sqrt(0.15)
-        noise_obs_v = np.sqrt(0.0001)
+        noise_obs_f = 0.15**2
+        noise_obs_v = 0.0001**2
         
         # Priors for f and v
         f_variance = 0.5
-        self.kernel_f = Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1e5], nu=2.5), ConstantKernel(f_variance))
-        self.f = GPR(kernel=self.kernel_f, alpha=noise_obs_f, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
+        self.kernel_f = Sum(Product(Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5), ConstantKernel(f_variance,constant_value_bounds="fixed")), WhiteKernel(noise_obs_f))
+        #self.kernel_f = RBF(1) * ConstantKernel(1)
+        self.f = GPR(kernel=self.kernel_f, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         v_variance = np.sqrt(2)
         v_mean = 1.5
-        self.kernel_v = Sum(ConstantKernel(v_mean), Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1e5], nu=2.5), ConstantKernel(v_variance)))
+        self.kernel_v = Sum(Sum(ConstantKernel(v_mean), Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1e5], nu=2.5), ConstantKernel(v_variance))), WhiteKernel(noise_obs_v))
         #self.kernel_v = ConstantKernel(v_mean)
-        self.v = GPR(kernel=self.kernel_v, alpha=noise_obs_v, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
+        self.v = GPR(kernel=self.kernel_v, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         # Prealocate data_array
         self.data_points = np.zeros([1,3])
@@ -111,7 +112,7 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 8
+        k = 5
 
         # Importance of good accuracy
         tau = 4
@@ -121,7 +122,7 @@ class BO_algo():
         #af_value = f_x[0] + k*f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
         #print(af_value)
 
-        af_value = f_x[0] + k * f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+        af_value = f_x[1] + v_x[1]
 
         af_value = np.reshape(af_value,[1])
 
