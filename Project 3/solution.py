@@ -54,8 +54,8 @@ class BO_algo():
 
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
-        #x_recommended = self.optimize_acquisition_function()
-        x_recommended = domain[:, 0] + (domain[:, 1] - domain[:, 0]) * np.random.rand(domain.shape[0])
+        x_recommended = self.optimize_acquisition_function()
+        #x_recommended = domain[:, 0] + (domain[:, 1] - domain[:, 0]) * np.random.rand(domain.shape[0])
         return np.atleast_2d(x_recommended)
         # TODO: finish code
 
@@ -112,7 +112,7 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 5
+        k = 1
 
         # Importance of good accuracy
         tau = 4
@@ -122,7 +122,7 @@ class BO_algo():
         #af_value = f_x[0] + k*f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
         #print(af_value)
 
-        af_value = f_x[1] + v_x[1]
+        af_value = f_x[0] + k*f_x[1] + v_x[0]
 
         af_value = np.reshape(af_value,[1])
 
