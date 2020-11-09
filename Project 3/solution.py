@@ -4,6 +4,8 @@ from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process.kernels import Matern, ConstantKernel, Sum, Product, WhiteKernel, RBF
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 
+import time
+
 domain = np.array([[0, 5]])
 
 
@@ -15,26 +17,26 @@ class BO_algo():
         """Initializes the algorithm with a parameter configuration. """
 
         # TODO: enter your code here
+        #self.File_object = open(r"/Users/adrialopezescoriza/Documents/UNI/GRAU/4A-ETH/PAI/PROJECTS/PAI/Project 3/results.txt","w+")
 
         self.v_min = 1.2
-        noise_obs_f = 0.15
-        noise_obs_v = 0.0001
+        noise_obs_f = np.sqrt(0.15)
+        noise_obs_v = np.sqrt(0.0001)
         
         # Priors for f and v
         f_variance = 0.5
-        self.kernel_f = Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1], nu=2.5), ConstantKernel(f_variance))
-        #self.kernel_f = WhiteKernel(0.1) + ConstantKernel(16)
-        self.f = GPR(kernel=self.kernel_f, alpha=noise_obs_f**2, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
+        self.kernel_f = Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1e5], nu=2.5), ConstantKernel(f_variance))
+        self.f = GPR(kernel=self.kernel_f, alpha=noise_obs_f, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         v_variance = np.sqrt(2)
         v_mean = 1.5
-        self.kernel_v = Sum(ConstantKernel(v_mean, constant_value_bounds="fixed"), Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1e5], nu=2.5), ConstantKernel(v_variance)))
+        self.kernel_v = Sum(ConstantKernel(v_mean), Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1e5], nu=2.5), ConstantKernel(v_variance)))
         #self.kernel_v = ConstantKernel(v_mean)
-        self.v = GPR(kernel=self.kernel_v, alpha=noise_obs_v**2, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
+        self.v = GPR(kernel=self.kernel_v, alpha=noise_obs_v, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         # Prealocate data_array
         self.data_points = np.zeros([1,3])
-        self.data_points_aux = np.zeros([1,3])
+        self.data_points_aux = np.zeros([1,5])
 
         # TODO: finish code
 
@@ -51,7 +53,8 @@ class BO_algo():
 
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
-        x_recommended = self.optimize_acquisition_function()
+        #x_recommended = self.optimize_acquisition_function()
+        x_recommended = domain[:, 0] + (domain[:, 1] - domain[:, 0]) * np.random.rand(domain.shape[0])
         return np.atleast_2d(x_recommended)
         # TODO: finish code
 
@@ -108,15 +111,18 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 2
+        k = 8
 
         # Importance of good accuracy
-        tau = 50
+        tau = 4
         beta = 10
 
         # Trying LCB acquisition function first
-        af_value = f_x[0] + k*f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+        #af_value = f_x[0] + k*f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
         #print(af_value)
+
+        af_value = f_x[0] + k * f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+
         af_value = np.reshape(af_value,[1])
 
         return af_value
@@ -151,6 +157,8 @@ class BO_algo():
 
         data_array = np.append(x,np.atleast_2d(self.f.predict(x)),axis=1)
         data_array = np.append(data_array,np.atleast_2d(self.v.predict(x)),axis=1)
+        data_array = np.append(data_array,np.atleast_2d(self.f.predict(x,return_std=True)[1]),axis=1)
+        data_array = np.append(data_array,np.atleast_2d(self.v.predict(x,return_std=True)[1]),axis=1)
         self.data_points_aux = np.vstack((self.data_points_aux, data_array))
 
         self.f.fit(np.atleast_2d(self.data_points[:,0]).T, np.atleast_2d(self.data_points[:,1]).T)
@@ -182,10 +190,16 @@ class BO_algo():
 
         # Comments to check out how everything is going
         print("Real Points:\n", self.data_points)
-        print("\nEstimated Points:\n", self.data_points_aux)
+        print("\nEstimated Points:\n", self.data_points_aux[:,0:3])
         print("Selected Point:")
         print(suitable_points[opt_idx])
         print(self.acquisition_function(suitable_points[opt_idx,0]), self.f.predict(np.atleast_2d(suitable_points[opt_idx,0]), return_std=True))
+        print("F Regression Score:", self.f.score(np.atleast_2d(self.data_points[:,0]).T, np.atleast_2d(self.data_points[:,1]).T))
+        print("V Regression Score:", self.v.score(np.atleast_2d(self.data_points[:,0]).T, np.atleast_2d(self.data_points[:,2]).T))
+
+        
+        #self.File_object.write("Real Points:\n" + str(self.data_points) + "\nEstimated Points:\n" +  str(self.data_points_aux[:,:]) + "\nSelected Point:" + str(suitable_points[opt_idx]))
+        #File_object.close()
 
         return suitable_points[opt_idx, 0]
 
@@ -203,14 +217,14 @@ kernel_f_hidden = Matern(length_scale=4.5, length_scale_bounds="fixed", nu=2.5) 
 
 def f_aux(x):
     """Dummy objective"""
-    return x*2 + np.random.normal(loc=0.0, scale=0.0015)
+    return 2-(3.7-x)**2 + np.random.normal(loc=0.0, scale=0.15)
 
 v_variance_hidden = np.sqrt(np.sqrt(2))
 v_mean = 1.5
 kernel_v_hidden = Sum(ConstantKernel(v_mean,constant_value_bounds="fixed"), Product(Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5),ConstantKernel(v_variance_hidden)))
 def v_aux(x):
     """Dummy speed"""
-    return x*4 + np.random.normal(loc=0.0, scale=0.0001)
+    return 5-x + np.random.normal(loc=0.0, scale=0.0001)
 
 
 def main():
