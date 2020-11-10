@@ -19,8 +19,8 @@ class BO_algo():
         # TODO: enter your code here
         #self.File_object = open(r"/Users/adrialopezescoriza/Documents/UNI/GRAU/4A-ETH/PAI/PROJECTS/PAI/Project 3/results.txt","w+")
 
-        self.v_min = 1.2
-        noise_obs_f = 0.15
+        self.v_min = 1.21
+        noise_obs_f = 0.5
         noise_obs_v = 0.0001
         
         # Priors for f and v
@@ -112,15 +112,17 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 2
+        k = 1
 
         # Importance of good accuracy
         alpha = 1
+        beta = 200
+        tau = 10
 
         # Trying LCB acquisition function first
         af_value = f_x[0] + k*f_x[1] #- tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
         if(v_x[0] < self.v_min):
-            af_value = -5
+            af_value = -10
 
         af_value = np.reshape(af_value,[1])
 
