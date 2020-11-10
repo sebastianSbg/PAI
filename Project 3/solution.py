@@ -112,15 +112,10 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 1
-
-        # Importance of good accuracy
-        alpha = 1
-        beta = 200
-        tau = 10
+        k = 0.9
 
         # Trying LCB acquisition function first
-        af_value = f_x[0] + k*f_x[1] #- tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+        af_value = f_x[0] + k*f_x[1]
         if(v_x[0] < self.v_min):
             af_value = -10
 
