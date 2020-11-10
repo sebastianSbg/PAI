@@ -20,12 +20,12 @@ class BO_algo():
         #self.File_object = open(r"/Users/adrialopezescoriza/Documents/UNI/GRAU/4A-ETH/PAI/PROJECTS/PAI/Project 3/results.txt","w+")
 
         self.v_min = 1.21
-        noise_obs_f = 0.5
+        noise_obs_f = 0.2
         noise_obs_v = 0.0001
         
         # Priors for f and v
         f_variance = 0.5
-        self.kernel_f = Sum(Product(Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5), ConstantKernel(f_variance,constant_value_bounds="fixed")), WhiteKernel(noise_obs_f))
+        self.kernel_f = Sum(Product(Matern(length_scale=0.5, length_scale_bounds=[1e-5,1], nu=2.5), ConstantKernel(f_variance,constant_value_bounds="fixed")), WhiteKernel(noise_obs_f))
         self.f = GPR(kernel=self.kernel_f, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         v_variance = np.sqrt(2)
