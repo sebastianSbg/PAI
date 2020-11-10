@@ -20,7 +20,7 @@ class BO_algo():
         #self.File_object = open(r"/Users/adrialopezescoriza/Documents/UNI/GRAU/4A-ETH/PAI/PROJECTS/PAI/Project 3/results.txt","w+")
 
         self.v_min = 1.21
-        noise_obs_f = 0.2
+        noise_obs_f = 0.4
         noise_obs_v = 0.0001
         
         # Priors for f and v
