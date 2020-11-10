@@ -21,12 +21,11 @@ class BO_algo():
 
         self.v_min = 1.2
         noise_obs_f = 0.15
-        noise_obs_v = 0.0001**2
+        noise_obs_v = 0.0001
         
         # Priors for f and v
         f_variance = 0.5
         self.kernel_f = Sum(Product(Matern(length_scale=0.5, length_scale_bounds="fixed", nu=2.5), ConstantKernel(f_variance,constant_value_bounds="fixed")), WhiteKernel(noise_obs_f))
-        #self.kernel_f = RBF(1) * ConstantKernel(1)
         self.f = GPR(kernel=self.kernel_f, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         v_variance = np.sqrt(2)
@@ -53,10 +52,11 @@ class BO_algo():
         """
 
         # TODO: enter your code here
+
         # In implementing this function, you may use optimize_acquisition_function() defined below.
         x_recommended = self.optimize_acquisition_function()
-        #x_recommended = domain[:, 0] + (domain[:, 1] - domain[:, 0]) * np.random.rand(domain.shape[0])
         return np.atleast_2d(x_recommended)
+
         # TODO: finish code
 
 
@@ -112,21 +112,15 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 4
+        k = 2
 
         # Importance of good accuracy
-        tau = -8
-        beta = 20
         alpha = 1
 
         # Trying LCB acquisition function first
-        #af_value = f_x[0] + k*f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
-        #print(af_value)
-
-        #af_value = alpha*f_x[0] + f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
-        af_value = alpha*f_x[0] + k*f_x[1] #- tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+        af_value = f_x[0] + k*f_x[1] #- tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
         if(v_x[0] < self.v_min):
-            af_value = -10
+            af_value = -5
 
         af_value = np.reshape(af_value,[1])
 
@@ -165,15 +159,6 @@ class BO_algo():
         data_array = np.append(data_array,np.atleast_2d(self.f.predict(x,return_std=True)[1]),axis=1)
         data_array = np.append(data_array,np.atleast_2d(self.v.predict(x,return_std=True)[1]),axis=1)
         self.data_points_aux = np.vstack((self.data_points_aux, data_array))
-
-        '''
-        Npoints = 10
-        if(np.shape(self.data_points)[0] > Npoints):
-            data_transformed = KMeans(n_clusters=Npoints, random_state=0).fit(self.data_points[:,0:2]).cluster_centers_
-        else:
-            data_transformed = self.data_points
-        self.f.fit(np.atleast_2d(data_transformed[:,0]).T, np.atleast_2d(data_transformed[:,1]).T)
-        '''
 
         self.f.fit(np.atleast_2d(self.data_points[:,0]).T, np.atleast_2d(self.data_points[:,1]).T)
         self.v.fit(np.atleast_2d(self.data_points[:,0]).T, np.atleast_2d(self.data_points[:,2]).T)
