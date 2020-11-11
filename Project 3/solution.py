@@ -33,9 +33,9 @@ class BO_algo():
         self.v = GPR(kernel=self.kernel_v, alpha=1e-10, optimizer='fmin_l_bfgs_b', n_restarts_optimizer=0, normalize_y=False, copy_X_train=True, random_state=None)
 
         # Prealocate data_array
-        self.x_vals = np.zeros([1,1])
-        self.f_vals = np.zeros([1,1])
-        self.v_vals = np.zeros([1,1])
+        self.x_vals = np.array([])
+        self.f_vals = np.array([])
+        self.v_vals = np.array([])
 
         self.data_points = np.zeros([1,3])
         self.data_points_aux = np.zeros([1,5])
@@ -108,19 +108,10 @@ class BO_algo():
         v_x = self.v.predict(np.atleast_2d(x), return_std=True)
 
         # k as Exploration-Exploitation trade-off
-        k = 4
-
-        # Importance of good accuracy
-        tau = -8
-        beta = 20
-        alpha = 1
+        k = 0.9
 
         # Trying LCB acquisition function first
-        #af_value = f_x[0] + k*f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
-        #print(af_value)
-
-        #af_value = alpha*f_x[0] + f_x[1] - tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
-        af_value = alpha*f_x[0] + k*f_x[1] #- tau*1./(1+np.exp(-beta*(self.v_min - v_x[0])))
+        af_value = f_x[0] + k*f_x[1]
         if(v_x[0] < self.v_min):
             af_value = -10
 
@@ -141,14 +132,10 @@ class BO_algo():
         v: np.ndarray
             Model training speed
         """
+
         self.x_vals = np.append(self.x_vals, np.atleast_2d(x))
         self.f_vals = np.append(self.f_vals, np.atleast_2d(f))
         self.v_vals = np.append(self.v_vals, np.atleast_2d(v))
-
-        if (self.x_vals == []):
-            self.x_vals = np.zeros([1,1])
-            self.f_vals = np.zeros([1,1])
-            self.v_vals = np.zeros([1,1])
 
         # fit surrogate model
         self.f.fit(np.atleast_2d(self.x_vals).T, np.atleast_2d(self.f_vals).T)
@@ -172,19 +159,19 @@ class BO_algo():
         if (np.all(mask == False)): # if v is nowhere larger than v_min, just use all points
             mask = [True for _ in self.v_vals]
 
-        opt_idx = np.argmax(self.f_vals[mask])
+        suitable_points = self.f_vals[mask]
+        opt_idx = np.argmax(suitable_points)
 
         # printouts
         print("test points (x): ", self.x_vals)
-        print("selected point: ", self.x_vals[opt_idx], ", f: ", self.f_vals[opt_idx])
-        print("acquisition function: ", self.acquisition_function(self.x_vals[opt_idx]))
+        print("selected point: ", self.x_vals[mask][opt_idx], ", f: ", self.f_vals[mask][opt_idx])
+        print("acquisition function: ", self.acquisition_function(self.x_vals[mask][opt_idx]))
         print("F regression score: ", self.f.score(np.atleast_2d(self.x_vals).T, np.atleast_2d(self.f_vals).T))
         print("V regression score: ", self.v.score(np.atleast_2d(self.x_vals).T, np.atleast_2d(self.v_vals).T))
 
-        #self.File_object.write("Real Points:\n" + str(self.data_points) + "\nEstimated Points:\n" +  str(self.data_points_aux[:,:]) + "\nSelected Point:" + str(suitable_points[opt_idx]))
-        #File_object.close()
-        #time.sleep(5000)
-        return self.x_vals[opt_idx]
+        return self.x_vals[mask][opt_idx]
+
+
 
 """ Toy problem to check code works as expected """
 
