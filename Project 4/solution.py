@@ -105,7 +105,18 @@ class MLPActorCritic(nn.Module):
         #    3. The log-probability of the action under the policy output distribution
         # Hint: This function is only called during inference. You should use
         # `torch.no_grad` to ensure that it does not interfer with the gradient computation.
-        return 0, 0, 0
+
+        policy_dist = self.pi._distribution(state)
+
+        with torch.no_grad():
+            action_sample = policy_dist.sample()
+            value_function = self.v.forward(state)
+            action_log_likelihood = self.pi._log_prob_from_distribution(policy_dist,action_sample)
+
+        action_sample, value_function, action_log_likelihood = action_sample.item(), value_function.item(), action_log_likelihood.item()
+
+        # TODO: Finish code
+        return action_sample, value_function, action_log_likelihood
 
     def act(self, state):
         return self.step(state)[0]
@@ -156,13 +167,20 @@ class VPGBuffer:
         vals = np.append(self.val_buf[path_slice], last_val)
 
         # TODO: Implement TD residual calculation.
+    
         # Hint: we do the discounting for you, you just need to compute 'deltas'.
         # see the handout for more info
         # deltas = rews[:-1] + ...
-        deltas = rews[:-1]
+        deltas = rews[:-1] + vals[1:] - vals[:-1]
         self.tdres_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam)
 
+        # TODO: finish code
+
         #TODO: compute the discounted rewards-to-go. Hint: use the discount_cumsum function
+
+        self.ret_buf[path_slice] = discount_cumsum(rews[:-1], self.gamma)        
+
+        # TODO: finish code
 
         self.path_start_idx = self.ptr
 
@@ -176,7 +194,8 @@ class VPGBuffer:
         self.ptr, self.path_start_idx = 0, 0
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
-        self.tdres_buf = self.tdres_buf
+        self.tdres_buf = self.tdres_buf / np.sum(self.tdres_buf)
+        # TODO: Finish code
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     tdres=self.tdres_buf, logp=self.logp_buf)
@@ -226,6 +245,12 @@ class Agent:
         # Initialize the ADAM optimizer using the parameters
         # of the policy and then value networks
         # TODO: Use these optimizers later to update the policy and value networks.
+
+        loss_fn_v = nn.MSELoss(reduction='mean')
+        self.ac.pi.train()
+        self.ac.v.train()
+
+        # TODO: Finish code
         pi_optimizer = Adam(self.ac.pi.parameters(), lr=pi_lr)
         v_optimizer = Adam(self.ac.v.parameters(), lr=vf_lr)
 
@@ -267,24 +292,38 @@ class Agent:
 
             # This is the end of an epoch, so here is where you likely want to update
             # the policy and / or value function.
-            # TODO: Implement the polcy and value function update. Hint: some of the torch code is
+            # TODO: Implement the policy and value function update. Hint: some of the torch code is
             # done for you.
 
             data = buf.get()
+
+            ret = data['ret']
+            tdres = data['tdres']
+            logp = data['logp']
+            actions = data['act']
+            states = data['obs']
 
             #Do 1 policy gradient update
             pi_optimizer.zero_grad() #reset the gradient in the policy optimizer
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
+            policy_dist = self.ac.pi._distribution(states)
+            logp = self.ac.pi._log_prob_from_distribution(policy_dist,actions)
+            vals = self.ac.v.forward(states)
+            loss_pi = torch.mean(tdres * logp)
+            loss_pi.backward()
+            pi_optimizer.step()
 
             #We suggest to do 100 iterations of value function updates
             for _ in range(100):
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
+                loss_v = loss_fn_v(tdres, ret)
+                #loss_v.backward()
                 #v_optimizer.step()
 
-
+            # TODO: Finish code
         return True
 
 
@@ -296,8 +335,10 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        # Currently, this just returns a random action.
-        return np.random.choice([0, 1, 2, 3])
+        action,_,_ = self.ac.step(torch.as_tensor(obs, dtype=torch.float32))
+        #action = np.random.choice([0, 1, 2, 3])
+        # TODO: Finish code
+        return action
 
 
 def main():
