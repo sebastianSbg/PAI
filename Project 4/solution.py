@@ -194,7 +194,7 @@ class VPGBuffer:
         self.ptr, self.path_start_idx = 0, 0
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
-        self.tdres_buf = self.tdres_buf / np.sum(self.tdres_buf)
+        self.tdres_buf = (self.tdres_buf / np.sum(self.tdres_buf))
         # TODO: Finish code
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
@@ -299,7 +299,7 @@ class Agent:
 
             ret = data['ret']
             tdres = data['tdres']
-            logp = data['logp']
+            #logp = data['logp']
             actions = data['act']
             states = data['obs']
 
@@ -308,20 +308,21 @@ class Agent:
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
-            policy_dist = self.ac.pi._distribution(states)
-            logp = self.ac.pi._log_prob_from_distribution(policy_dist,actions)
-            vals = self.ac.v.forward(states)
-            loss_pi = torch.mean(tdres * logp)
+            _,logp = self.ac.pi(states, actions)
+            
+            loss_pi = -torch.mean(ret * logp)*1e4
+            print(loss_pi)
             loss_pi.backward()
             pi_optimizer.step()
 
             #We suggest to do 100 iterations of value function updates
             for _ in range(100):
+                vals = self.ac.v(states)
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
-                loss_v = loss_fn_v(tdres, ret)
-                #loss_v.backward()
-                #v_optimizer.step()
+                loss_v = loss_fn_v(vals, ret)
+                loss_v.backward()
+                v_optimizer.step()
 
             # TODO: Finish code
         return True
