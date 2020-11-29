@@ -194,7 +194,7 @@ class VPGBuffer:
         self.ptr, self.path_start_idx = 0, 0
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
-        self.tdres_buf = self.tdres_buf
+        self.tdres_buf = self.tdres_buf / sum(self.tdres_buf ** 2)
         # TODO: Finish code
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
