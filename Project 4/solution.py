@@ -105,7 +105,12 @@ class MLPActorCritic(nn.Module):
         #    3. The log-probability of the action under the policy output distribution
         # Hint: This function is only called during inference. You should use
         # `torch.no_grad` to ensure that it does not interfer with the gradient computation.
-        return 0, 0, 0
+        action_distribution = self.pi(state)[0].probs #distirbution from NN
+        action = action_distribution.sample()  #sample
+        logprob = action_distribution.log_prob(action)
+        value = self.v(state)
+
+        return action, value, logprob
 
     def act(self, state):
         return self.step(state)[0]
