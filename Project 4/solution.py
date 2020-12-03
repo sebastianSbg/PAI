@@ -309,21 +309,18 @@ class Agent:
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
             _,logp = self.ac.pi(states, actions)
-            
-            loss_pi = -torch.mean(tdres * logp)*1e4
-            print(loss_pi)
+            loss_pi = -torch.sum(tdres * logp)
             loss_pi.backward()
             pi_optimizer.step()
 
             #We suggest to do 100 iterations of value function updates
-            for _ in range(100):
+            for _ in range(100):   
                 vals = self.ac.v(states)
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
                 loss_v = loss_fn_v(vals, ret)
                 loss_v.backward()
                 v_optimizer.step()
-
             # TODO: Finish code
         return True
 
@@ -337,7 +334,6 @@ class Agent:
         """
         # TODO: Implement this function.
         action,_,_ = self.ac.step(torch.as_tensor(obs, dtype=torch.float32))
-        #action = np.random.choice([0, 1, 2, 3])
         # TODO: Finish code
         return action
 
