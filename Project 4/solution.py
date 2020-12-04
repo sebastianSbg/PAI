@@ -245,7 +245,10 @@ class Agent:
         # Initialize the ADAM optimizer using the parameters
         # of the policy and then value networks
         # TODO: Use these optimizers later to update the policy and value networks.
-
+        states = torch.empty((1,steps_per_epoch,8))
+        actions = torch.empty((1,steps_per_epoch))
+        tdres = torch.empty((1,steps_per_epoch))
+        ret = torch.empty((1,steps_per_epoch))
         loss_fn_v = nn.MSELoss(reduction='mean')
         self.ac.pi.train()
         self.ac.v.train()
@@ -297,28 +300,45 @@ class Agent:
 
             data = buf.get()
 
-            ret = data['ret']
-            tdres = data['tdres']
-            #logp = data['logp']
-            actions = data['act']
-            states = data['obs']
+            if(epoch==0):
+                ret = data['ret'].view(1,-1)
+                tdres = data['tdres'].view(1,-1)
+                actions = data['act'].view(1,-1)
+                states = data['obs'].view(1,-1,8)
+            else:
+                ret = torch.cat([tdres,data['ret'].view(1,-1)],dim=0)
+                tdres = torch.cat([tdres,data['tdres'].view(1,-1)],dim=0)
+                #logp = data['logp']
+                actions = torch.cat([actions,data['act'].view(1,-1)],dim=0)
+                states = torch.cat([states,data['obs'].view(1,-1,8)],dim=0)
+
 
             #Do 1 policy gradient update
             pi_optimizer.zero_grad() #reset the gradient in the policy optimizer
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
-            #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
-            _,logp = self.ac.pi(states, actions)
-            loss_pi = -torch.sum(tdres * logp)
+            #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step() 
+            D = 25
+            if(epoch < D):
+                start = 0
+            else:
+                start = epoch-D 
+                
+            end = start+D +1
+            start = epoch 
+
+            _,logp = self.ac.pi(states[start:end,:,:], actions[start:end,:])
+            loss_pi = -torch.sum(tdres[start:end,:] * logp)/(end-start)
+            print(loss_pi)
             loss_pi.backward()
             pi_optimizer.step()
 
             #We suggest to do 100 iterations of value function updates
             for _ in range(100):   
-                vals = self.ac.v(states)
+                vals = self.ac.v(states[epoch,:,:])
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
-                loss_v = loss_fn_v(vals, ret)
+                loss_v = loss_fn_v(vals, ret[epoch,:])
                 loss_v.backward()
                 v_optimizer.step()
             # TODO: Finish code
@@ -333,7 +353,7 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        action,_,_ = self.ac.step(torch.as_tensor(obs, dtype=torch.float32))
+        action = self.ac.act(torch.as_tensor(obs, dtype=torch.float32))
         # TODO: Finish code
         return action
 
