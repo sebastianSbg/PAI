@@ -318,7 +318,7 @@ class Agent:
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step() 
-            D = 25
+            D = 35
             if(epoch < D):
                 start = 0
             else:
