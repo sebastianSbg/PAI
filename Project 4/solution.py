@@ -193,8 +193,8 @@ class VPGBuffer:
         assert self.ptr == self.max_size
         self.ptr, self.path_start_idx = 0, 0
 
-        # TODO: Normalize the TD-residuals in self.tdres_buf
-        self.tdres_buf = self.tdres_buf / sum(self.tdres_buf ** 2)
+        # TODO: Standarize the TD-residuals in self.tdres_buf
+        self.tdres_buf = (self.tdres_buf - np.ones_like(self.tdres_buf) * np.mean(self.tdres_buf)) / np.std(self.tdres_buf)
         # TODO: Finish code
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
@@ -299,6 +299,7 @@ class Agent:
             # done for you.
 
             data = buf.get()
+            print(actions)
 
             if(epoch==0):
                 ret = data['ret'].view(1,-1)
@@ -318,14 +319,17 @@ class Agent:
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step() 
-            D = 35
+            D = 20
             if(epoch < D):
                 start = 0
             else:
                 start = epoch-D 
                 
-            end = start+D +1
-            start = epoch 
+            end = start+D
+            #start = epoch 
+        
+            print(start,'-',end)
+            print(actions[start:end,:])
 
             _,logp = self.ac.pi(states[start:end,:,:], actions[start:end,:])
             loss_pi = -torch.sum(tdres[start:end,:] * logp)/(end-start)
@@ -333,12 +337,14 @@ class Agent:
             loss_pi.backward()
             pi_optimizer.step()
 
+            print(actions)
+
             #We suggest to do 100 iterations of value function updates
             for _ in range(100):   
-                vals = self.ac.v(states[epoch,:,:])
+                vals = self.ac.v(states[start:end,:,:])
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
-                loss_v = loss_fn_v(vals, ret[epoch,:])
+                loss_v = loss_fn_v(vals, ret[start:end,:])
                 loss_v.backward()
                 v_optimizer.step()
             # TODO: Finish code
@@ -353,9 +359,9 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        action = self.ac.act(torch.as_tensor(obs, dtype=torch.float32))
+        action_ret = self.ac.act(torch.as_tensor(obs, dtype=torch.float32))
         # TODO: Finish code
-        return action
+        return action_ret
 
 
 def main():
@@ -390,8 +396,8 @@ def main():
             if i <= 10:
                 rec.capture_frame()
             # Taking an action in the environment
-            action = agent.get_action(state)
-            state, reward, terminal = env.transition(action)
+            action_s = agent.get_action(state)
+            state, reward, terminal = env.transition(action_s)
             cumulative_return += reward
             if terminal:
                 break
