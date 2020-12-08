@@ -193,8 +193,8 @@ class VPGBuffer:
         assert self.ptr == self.max_size
         self.ptr, self.path_start_idx = 0, 0
 
-        # TODO: Normalize the TD-residuals in self.tdres_buf
-        self.tdres_buf = self.tdres_buf / sum(self.tdres_buf ** 2)
+        # TODO: Standarize the TD-residuals in self.tdres_buf
+        self.tdres_buf = (self.tdres_buf - np.mean(self.tdres_buf)) / np.std(self.tdres_buf)
         # TODO: Finish code
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
@@ -246,7 +246,7 @@ class Agent:
         # of the policy and then value networks
         # TODO: Use these optimizers later to update the policy and value networks.
         states = torch.empty((1,steps_per_epoch,8))
-        actions = torch.empty((1,steps_per_epoch))
+        actions_saved = torch.empty((1,steps_per_epoch))
         tdres = torch.empty((1,steps_per_epoch))
         ret = torch.empty((1,steps_per_epoch))
         loss_fn_v = nn.MSELoss(reduction='mean')
@@ -289,7 +289,6 @@ class Agent:
                         ep_returns.append(ep_ret)  # only store return when episode ended
                     buf.end_traj(v)
                     state, ep_ret, ep_len = self.env.reset(), 0, 0
-
             mean_return = np.mean(ep_returns) if len(ep_returns) > 0 else np.nan
             print(f"Epoch: {epoch+1}/{epochs}, mean return {mean_return}")
 
@@ -297,42 +296,40 @@ class Agent:
             # the policy and / or value function.
             # TODO: Implement the policy and value function update. Hint: some of the torch code is
             # done for you.
-
             data = buf.get()
 
             if(epoch==0):
-                ret = data['ret'].view(1,-1)
-                tdres = data['tdres'].view(1,-1)
-                actions = data['act'].view(1,-1)
-                states = data['obs'].view(1,-1,8)
+                ret = torch.cat([data['ret'].view(1,-1)])
+                tdres = torch.cat([data['tdres'].view(1,-1)])
+                actions_saved = torch.cat([data['act'].view(1,-1)])
+                states = torch.cat([data['obs'].view(1,-1,8)])
             else:
                 ret = torch.cat([tdres,data['ret'].view(1,-1)],dim=0)
                 tdres = torch.cat([tdres,data['tdres'].view(1,-1)],dim=0)
                 #logp = data['logp']
-                actions = torch.cat([actions,data['act'].view(1,-1)],dim=0)
+                actions_saved = torch.cat([actions_saved,data['act'].view(1,-1)],dim=0)
                 states = torch.cat([states,data['obs'].view(1,-1,8)],dim=0)
-
 
             #Do 1 policy gradient update
             pi_optimizer.zero_grad() #reset the gradient in the policy optimizer
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step() 
-            D = 35
-            if(epoch < D):
+            D = 1
+            if(epoch < D-1):
                 start = 0
             else:
-                start = epoch-D 
-                
-            end = start+D +1
-            start = epoch 
+                start = (epoch+1)-D 
 
-            _,logp = self.ac.pi(states[start:end,:,:], actions[start:end,:])
-            loss_pi = -torch.sum(tdres[start:end,:] * logp)/(end-start)
+            end = epoch + 1
+
+            print(start,'-',end)
+
+            _,logp = self.ac.pi(states[start:end,:,:], actions_saved[start:end,:])
+            loss_pi = -torch.sum(tdres[start:end,:] * logp)/(actions_saved[start:end,:].size()[0])
             print(loss_pi)
             loss_pi.backward()
             pi_optimizer.step()
-
             #We suggest to do 100 iterations of value function updates
             for _ in range(100):   
                 vals = self.ac.v(states[epoch,:,:])
