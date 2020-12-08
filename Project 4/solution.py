@@ -304,7 +304,7 @@ class Agent:
                 actions_saved = torch.cat([data['act'].view(1,-1)])
                 states = torch.cat([data['obs'].view(1,-1,8)])
             else:
-                ret = torch.cat([tdres,data['ret'].view(1,-1)],dim=0)
+                ret = torch.cat([ret,data['ret'].view(1,-1)],dim=0)
                 tdres = torch.cat([tdres,data['tdres'].view(1,-1)],dim=0)
                 #logp = data['logp']
                 actions_saved = torch.cat([actions_saved,data['act'].view(1,-1)],dim=0)
@@ -315,7 +315,7 @@ class Agent:
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step() 
-            D = 1
+            D = 5
             if(epoch < D-1):
                 start = 0
             else:
@@ -332,10 +332,10 @@ class Agent:
             pi_optimizer.step()
             #We suggest to do 100 iterations of value function updates
             for _ in range(100):   
-                vals = self.ac.v(states[epoch,:,:])
+                vals = self.ac.v(states[start:end,:,:])
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
-                loss_v = loss_fn_v(vals, ret[epoch,:])
+                loss_v = loss_fn_v(vals, ret[start:end,:])
                 loss_v.backward()
                 v_optimizer.step()
             # TODO: Finish code
