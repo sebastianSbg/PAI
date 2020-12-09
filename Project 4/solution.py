@@ -328,7 +328,7 @@ class Agent:
             start = epoch 
 
             _,logp = self.ac.pi(states[start:end,:,:], actions[start:end,:])
-            loss_pi = -torch.sum(tdres[start:end,:] * logp)/(end-start)
+            loss_pi = -torch.sum(tdres[start:end,:] * logp)/(len(ep_returns))
             print(loss_pi)
             loss_pi.backward()
             pi_optimizer.step()
